@@ -18,6 +18,14 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
   final SettingsService _settingsService = SettingsService();
   final ProductService _productService = ProductService();
   
+  // Opticore theme colors
+  final Color _primaryBlue = const Color(0xFF3B82F6); // blue-500
+  final Color _darkBlue = const Color(0xFF2563EB);    // blue-600
+  final Color _lightBlue = const Color(0xFFEFF6FF);   // blue-50
+  final Color _borderBlue = const Color(0xFFDBEAFE);  // blue-100
+  final Color _grayBg = const Color(0xFFF9FAFB);      // gray-50
+  final Color _borderGray = const Color(0xFFE5E7EB);  // gray-200
+  
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMoreData = false;
@@ -290,8 +298,8 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
+        builder: (context) => Center(
+          child: CircularProgressIndicator(color: _primaryBlue),
         ),
       );
       
@@ -314,7 +322,14 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
       
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inventory report exported successfully')),
+        SnackBar(
+          content: Text('Inventory report exported successfully'), 
+          backgroundColor: _primaryBlue,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
       );
     } catch (e) {
       // Close loading dialog if open
@@ -324,12 +339,19 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
       
       // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to export report: ${e.toString()}')),
+        SnackBar(
+          content: Text('Failed to export report: ${e.toString()}'), 
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
       );
     }
   }
   
-  // Stock update functionality
+  // Stock update functionality - FIXED VERSION
   void _showStockUpdateDialog(Product product) {
     int newStock = product.stock;
     final formKey = GlobalKey<FormState>();
@@ -341,7 +363,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           title: Row(
             children: [
-              const Icon(Icons.edit_outlined, color: Colors.blue),
+              Icon(Icons.edit_outlined, color: _primaryBlue),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -349,6 +371,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
+                    color: Colors.grey[900],
                   ),
                 ),
               ),
@@ -380,8 +403,9 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.grey[100],
+                      color: _lightBlue,
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _borderBlue),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -390,6 +414,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                           'Current Stock:',
                           style: TextStyle(
                             fontWeight: FontWeight.w500,
+                            color: Colors.grey[700],
                           ),
                         ),
                         Container(
@@ -418,6 +443,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                     style: TextStyle(
                       fontWeight: FontWeight.w500,
                       fontSize: 15,
+                      color: Colors.grey[800],
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -428,18 +454,18 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
+                        borderSide: BorderSide(color: _borderGray),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
+                        borderSide: BorderSide(color: _borderGray),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.blue),
+                        borderSide: BorderSide(color: _primaryBlue, width: 2),
                       ),
                       hintText: 'Enter new stock value',
-                      prefixIcon: Icon(Icons.inventory_2_outlined),
+                      prefixIcon: Icon(Icons.inventory_2_outlined, color: _primaryBlue),
                     ),
                     keyboardType: TextInputType.number,
                     validator: (value) {
@@ -477,10 +503,12 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
+                backgroundColor: _primaryBlue,
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
+                elevation: 1,
               ),
               child: const Text('UPDATE'),
             ),
@@ -494,6 +522,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
     });
   }
 
+  // FIXED stock update implementation that properly updates the UI
   Future<void> _updateProductStock(int productId, int newStock) async {
     try {
       // Show loading indicator
@@ -509,6 +538,22 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
       // Close loading dialog
       Navigator.of(context).pop();
       
+      // Update the product in the local state immediately
+      setState(() {
+        if (_reportData != null && _reportData!.containsKey('products')) {
+          final List<Product> currentProducts = _reportData!['products'] as List<Product>;
+          
+          // Find and update the product in the existing list
+          final index = currentProducts.indexWhere((p) => p.id == productId);
+          if (index != -1) {
+            currentProducts[index] = updatedProduct;
+            
+            // Log successful update for debugging
+            print('Product updated in local state: ${updatedProduct.name}, New Stock: ${updatedProduct.stock}');
+          }
+        }
+      });
+      
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -519,16 +564,17 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
               Text('Stock updated successfully'),
             ],
           ),
-          backgroundColor: Colors.green,
+          backgroundColor: Colors.green.shade600,
           duration: Duration(seconds: 3),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
           ),
         ),
       );
       
-      // Reload the report to show updated data
+      // Optionally reload the report to update summary data
+      // This is not strictly needed for the product list since we already updated it
       _loadReport();
     } catch (e) {
       // Close loading dialog if open
@@ -546,11 +592,11 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
               Expanded(child: Text('Failed to update stock: ${e.toString()}')),
             ],
           ),
-          backgroundColor: Colors.red[700],
+          backgroundColor: Colors.red.shade700,
           duration: Duration(seconds: 5),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
           ),
         ),
       );
@@ -568,7 +614,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
             padding: const EdgeInsets.symmetric(vertical: 20),
             child: Row(
               children: [
-                const CircularProgressIndicator(),
+                CircularProgressIndicator(color: _primaryBlue),
                 const SizedBox(width: 20),
                 Expanded(
                   child: Text(
@@ -587,20 +633,31 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
   // Helper function to get color based on stock status
   Color _getStockStatusColor(Product product) {
     if (product.stock <= 0) {
-      return Colors.red;
+      return Colors.red.shade600;
     } else if (product.stock <= product.minStock) {
-      return Colors.orange;
+      return Colors.orange.shade600;
     } else {
-      return Colors.green;
+      return Colors.green.shade600;
     }
   }
   
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: _grayBg,
       appBar: AppBar(
         title: const Text('Inventory Report'),
-        elevation: 0,
+        backgroundColor: _primaryBlue,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_darkBlue, _primaryBlue],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        elevation: 2,
         actions: [
           // View toggle
           IconButton(
@@ -655,14 +712,14 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(
                     width: 50,
                     height: 50,
-                    child: CircularProgressIndicator(),
+                    child: CircularProgressIndicator(color: _primaryBlue),
                   ),
                   SizedBox(height: 16),
                   Text('Loading inventory data...'),
@@ -720,10 +777,12 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
               onPressed: _loadReport,
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                backgroundColor: Colors.blue,
+                backgroundColor: _primaryBlue,
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
+                elevation: 1,
               ),
               icon: Icon(Icons.refresh),
               label: Text('TRY AGAIN'),
@@ -750,6 +809,7 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
     
     return RefreshIndicator(
       onRefresh: _loadReport,
+      color: _primaryBlue,
       child: Column(
         children: [
           // Search bar
@@ -759,10 +819,10 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search by name or SKU',
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: Icon(Icons.clear),
+                        icon: Icon(Icons.clear, color: Colors.grey[600]),
                         onPressed: () {
                           _searchController.clear();
                           setState(() {
@@ -775,15 +835,15 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
+                  borderSide: BorderSide(color: _borderGray),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
+                  borderSide: BorderSide(color: _borderGray),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.blue),
+                  borderSide: BorderSide(color: _primaryBlue, width: 2),
                 ),
               ),
               onChanged: (value) {
@@ -805,9 +865,11 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                   avatar: Icon(
                     Icons.filter_list,
                     size: 18,
-                    color: Colors.blue,
+                    color: _primaryBlue,
                   ),
                   label: Text('Filters'),
+                  backgroundColor: _lightBlue,
+                  side: BorderSide(color: _borderBlue),
                   onPressed: () {
                     showModalBottomSheet(
                       context: context,
@@ -825,12 +887,13 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                   label: Text('Low Stock'),
                   selected: _showLowStock,
                   selectedColor: Colors.orange.withOpacity(0.2),
-                  checkmarkColor: Colors.orange,
+                  checkmarkColor: Colors.orange.shade600,
                   avatar: Icon(
                     Icons.warning_amber_outlined,
                     size: 18,
-                    color: _showLowStock ? Colors.orange : Colors.grey,
+                    color: _showLowStock ? Colors.orange.shade600 : Colors.grey,
                   ),
+                  side: BorderSide(color: _showLowStock ? Colors.orange.shade300 : _borderGray),
                   onSelected: (selected) {
                     setState(() {
                       _showLowStock = selected;
@@ -848,872 +911,878 @@ class _InventoryReportScreenState extends State<InventoryReportScreen> {
                   label: Text('Out of Stock'),
                   selected: _showOutOfStock,
                   selectedColor: Colors.red.withOpacity(0.2),
-                  checkmarkColor: Colors.red,
+                  checkmarkColor: Colors.red.shade600,
                   avatar: Icon(
                     Icons.remove_shopping_cart_outlined,
                     size: 18,
-                    color: _showOutOfStock ? Colors.red : Colors.grey,
-                  ),
-                  onSelected: (selected) {
-                    setState(() {
-                      _showOutOfStock = selected;
-                      if (selected) {
-                        // Uncheck conflicting filter
-                        _showLowStock = false;
-                      }
-                    });
-                  },
-                ),
-                const SizedBox(width: 8),
-                
-                // Sort dropdown
-                Container(
-                  height: 32,
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey[300]!),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _sortBy,
-                      isDense: true,
-                      icon: Icon(
-                        _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                        size: 16,
-                      ),
-                      hint: Text('Sort by'),
-                      items: [
-                        DropdownMenuItem(value: 'name', child: Text('Name')),
-                        DropdownMenuItem(value: 'sku', child: Text('SKU')),
-                        DropdownMenuItem(value: 'stock', child: Text('Stock')),
-                        DropdownMenuItem(value: 'price', child: Text('Price')),
-                        DropdownMenuItem(value: 'value', child: Text('Value')),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            if (_sortBy == value) {
-                              // Toggle direction if same field
-                              _sortAscending = !_sortAscending;
-                            } else {
-                              _sortBy = value;
-                              _sortAscending = true;
-                            }
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Results count and loading indicator
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Row(
-              children: [
-                Text(
-                  '${sortedProducts.length} items',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Spacer(),
-                if (_isLoadingMore)
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          
-          // Summary cards
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: _buildSummaryCards(summary),
-          ),
-          
-          // Products list
-          Expanded(
-            child: _isGridView
-                ? _buildProductsGrid(sortedProducts)
-                : _buildProductsList(sortedProducts),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildFiltersBottomSheet() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Filters',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              TextButton.icon(
-                icon: Icon(Icons.refresh, size: 18),
-                label: Text('Reset'),
-                onPressed: () {
-                  setState(() {
-                    _selectedCategory = null;
-                    _selectedStockStatus = 'all';
-                  });
-                  Navigator.pop(context);
-                  _loadReport();
-                },
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          Text(
-            'Category',
-            style: TextStyle(
-              fontWeight: FontWeight.w500,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 8),
-          
-          // Category dropdown
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.white,
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButtonFormField<String?>(
-                decoration: InputDecoration(
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  border: InputBorder.none,
-                ),
-                isExpanded: true,
-                value: _selectedCategory,
-                items: _categoriesOptions.map((option) {
-                  return DropdownMenuItem<String?>(
-                    value: option['id']?.toString(),
-                    child: Text(option['name'] ?? 'All Categories'),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCategory = value;
-                  });
-                },
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          Text(
-            'Stock Status',
-            style: TextStyle(
-              fontWeight: FontWeight.w500,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 8),
-          
-          // Stock Status dropdown
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.white,
-              border: Border.all(color: Colors.grey[300]!),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  border: InputBorder.none,
-                ),
-                isExpanded: true,
-                value: _selectedStockStatus,
-                items: _stockStatusOptions.map((option) {
-                  return DropdownMenuItem<String>(
-                    value: option['value'],
-                    child: Text(option['label']),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedStockStatus = value!;
-                  });
-                },
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Apply filters button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _loadReport();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                padding: EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(
-                'APPLY FILTERS',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildSummaryCards(InventoryReportSummary summary) {
-    final numberFormat = NumberFormat.currency(symbol: _currencySymbol, decimalDigits: 2);
-    
-    return SizedBox(
-      height: 120,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          _buildSummaryCard(
-            'Total Products',
-            summary.totalProducts.toString(),
-            Icons.inventory_2_outlined,
-            Colors.blue,
-          ),
-          _buildSummaryCard(
-            'Total Value',
-            numberFormat.format(summary.totalValue),
-            Icons.monetization_on_outlined,
-            Colors.green,
-          ),
-          _buildSummaryCard(
-            'Low Stock',
-            summary.lowStockCount.toString(),
-            Icons.warning_amber_outlined,
-            Colors.orange,
-          ),
-          _buildSummaryCard(
-            'Out of Stock',
-            summary.outOfStockCount.toString(),
-            Icons.remove_shopping_cart_outlined,
-            Colors.red,
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      width: 150,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-        border: Border.all(
-          color: color.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, size: 20, color: color),
-              ),
-              // Optional: Add a trend indicator
-              Icon(
-                Icons.trending_up, // or trending_down based on your data
-                color: color.withOpacity(0.5),
-                size: 16,
-              ),
-            ],
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 12,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+                    color: _showOutOfStock ? Colors.red.shade600 : Colors.grey,
+                 ),
+                 side: BorderSide(color: _showOutOfStock ? Colors.red.shade300 : _borderGray),
+                 onSelected: (selected) {
+                   setState(() {
+                     _showOutOfStock = selected;
+                     if (selected) {
+                       // Uncheck conflicting filter
+                       _showLowStock = false;
+                     }
+                   });
+                 },
+               ),
+               const SizedBox(width: 8),
+               
+               // Sort dropdown
+               Container(
+                 height: 32,
+                 padding: EdgeInsets.symmetric(horizontal: 12),
+                 decoration: BoxDecoration(
+                   color: Colors.white,
+                   borderRadius: BorderRadius.circular(16),
+                   border: Border.all(color: _borderGray),
+                 ),
+                 child: DropdownButtonHideUnderline(
+                   child: DropdownButton<String>(
+                     value: _sortBy,
+                     isDense: true,
+                     icon: Icon(
+                       _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                       size: 16,
+                       color: _primaryBlue,
+                     ),
+                     hint: Text('Sort by'),
+                     items: [
+                       DropdownMenuItem(value: 'name', child: Text('Name')),
+                       DropdownMenuItem(value: 'sku', child: Text('SKU')),
+                       DropdownMenuItem(value: 'stock', child: Text('Stock')),
+                       DropdownMenuItem(value: 'price', child: Text('Price')),
+                       DropdownMenuItem(value: 'value', child: Text('Value')),
+                     ],
+                     onChanged: (value) {
+                       if (value != null) {
+                         setState(() {
+                           if (_sortBy == value) {
+                             // Toggle direction if same field
+                             _sortAscending = !_sortAscending;
+                           } else {
+                             _sortBy = value;
+                             _sortAscending = true;
+                           }
+                         });
+                       }
+                     },
+                   ),
+                 ),
+               ),
+             ],
+           ),
+         ),
+         
+         // Results count and loading indicator
+         Padding(
+           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+           child: Row(
+             children: [
+               Text(
+                 '${sortedProducts.length} items',
+                 style: TextStyle(
+                   color: Colors.grey[600],
+                   fontWeight: FontWeight.w500,
+                 ),
+               ),
+               Spacer(),
+               if (_isLoadingMore)
+                 SizedBox(
+                   width: 16,
+                   height: 16,
+                   child: CircularProgressIndicator(
+                     strokeWidth: 2,
+                     valueColor: AlwaysStoppedAnimation<Color>(_primaryBlue),
+                   ),
+                 ),
+             ],
+           ),
+         ),
+         
+         // Summary cards
+         Padding(
+           padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+           child: _buildSummaryCards(summary),
+         ),
+         
+         // Products list or grid
+         Expanded(
+           child: _isGridView
+               ? _buildProductsGrid(sortedProducts)
+               : _buildProductsList(sortedProducts),
+         ),
+       ],
+     ),
+   );
+ }
+ 
+ Widget _buildFiltersBottomSheet() {
+   return SingleChildScrollView(
+     padding: const EdgeInsets.all(16),
+     child: Column(
+       crossAxisAlignment: CrossAxisAlignment.start,
+       mainAxisSize: MainAxisSize.min,
+       children: [
+         Row(
+           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+           children: [
+             Text(
+               'Filters',
+               style: TextStyle(
+                 fontSize: 20,
+                 fontWeight: FontWeight.bold,
+                 color: Colors.grey[800],
+               ),
+             ),
+             TextButton.icon(
+               icon: Icon(Icons.refresh, size: 18, color: _primaryBlue),
+               label: Text('Reset', style: TextStyle(color: _primaryBlue)),
+               onPressed: () {
+                 setState(() {
+                   _selectedCategory = null;
+                   _selectedStockStatus = 'all';
+                 });
+                 Navigator.pop(context);
+                 _loadReport();
+               },
+             ),
+           ],
+         ),
+         
+         const SizedBox(height: 16),
+         
+         Text(
+           'Category',
+           style: TextStyle(
+             fontWeight: FontWeight.w500,
+             fontSize: 16,
+             color: Colors.grey[800],
+           ),
+         ),
+         const SizedBox(height: 8),
+         
+         // Category dropdown
+         Container(
+           decoration: BoxDecoration(
+             borderRadius: BorderRadius.circular(8),
+             color: Colors.white,
+             border: Border.all(color: _borderGray),
+           ),
+           child: DropdownButtonHideUnderline(
+             child: DropdownButtonFormField<String?>(
+               decoration: InputDecoration(
+                 contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                 border: InputBorder.none,
+               ),
+               isExpanded: true,
+               value: _selectedCategory,
+               items: _categoriesOptions.map((option) {
+                 return DropdownMenuItem<String?>(
+                   value: option['id']?.toString(),
+                   child: Text(option['name'] ?? 'All Categories'),
+                 );
+               }).toList(),
+               onChanged: (value) {
+                 setState(() {
+                   _selectedCategory = value;
+                 });
+               },
+             ),
+           ),
+         ),
+         
+         const SizedBox(height: 16),
+         
+         Text(
+           'Stock Status',
+           style: TextStyle(
+             fontWeight: FontWeight.w500,
+             fontSize: 16,
+             color: Colors.grey[800],
+           ),
+         ),
+         const SizedBox(height: 8),
+         
+         // Stock Status dropdown
+         Container(
+           decoration: BoxDecoration(
+             borderRadius: BorderRadius.circular(8),
+             color: Colors.white,
+             border: Border.all(color: _borderGray),
+           ),
+           child: DropdownButtonHideUnderline(
+             child: DropdownButtonFormField<String>(
+               decoration: InputDecoration(
+                 contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                 border: InputBorder.none,
+               ),
+               isExpanded: true,
+               value: _selectedStockStatus,
+               items: _stockStatusOptions.map((option) {
+                 return DropdownMenuItem<String>(
+                   value: option['value'],
+                   child: Text(option['label']),
+                 );
+               }).toList(),
+               onChanged: (value) {
+                 setState(() {
+                   _selectedStockStatus = value!;
+                 });
+               },
+             ),
+           ),
+         ),
+         
+         const SizedBox(height: 24),
+         
+         // Apply filters button
+         SizedBox(
+           width: double.infinity,
+           child: ElevatedButton(
+             onPressed: () {
+               Navigator.pop(context);
+               _loadReport();
+             },
+             style: ElevatedButton.styleFrom(
+               backgroundColor: _primaryBlue,
+               foregroundColor: Colors.white,
+               padding: EdgeInsets.symmetric(vertical: 12),
+               shape: RoundedRectangleBorder(
+                 borderRadius: BorderRadius.circular(8),
+               ),
+             ),
+             child: Text(
+               'APPLY FILTERS',
+               style: TextStyle(
+                 fontWeight: FontWeight.bold,
+                 fontSize: 16,
+               ),
+             ),
+           ),
+         ),
+       ],
+     ),
+   );
+ }
+ 
+ Widget _buildSummaryCards(InventoryReportSummary summary) {
+   final numberFormat = NumberFormat.currency(symbol: _currencySymbol, decimalDigits: 2);
+   
+   return SizedBox(
+     height: 120,
+     child: ListView(
+       scrollDirection: Axis.horizontal,
+       children: [
+         _buildSummaryCard(
+           'Total Products',
+           summary.totalProducts.toString(),
+           Icons.inventory_2_outlined,
+           _primaryBlue,
+         ),
+         _buildSummaryCard(
+           'Total Value',
+           numberFormat.format(summary.totalValue),
+           Icons.monetization_on_outlined,
+           Colors.green.shade600,
+         ),
+         _buildSummaryCard(
+           'Low Stock',
+           summary.lowStockCount.toString(),
+           Icons.warning_amber_outlined,
+           Colors.orange.shade600,
+         ),
+         _buildSummaryCard(
+           'Out of Stock',
+           summary.outOfStockCount.toString(),
+           Icons.remove_shopping_cart_outlined,
+           Colors.red.shade600,
+         ),
+       ],
+     ),
+   );
+ }
+ 
+ Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
+   return Container(
+     width: 150,
+     margin: const EdgeInsets.only(right: 12),
+     padding: const EdgeInsets.all(12),
+     decoration: BoxDecoration(
+       color: Colors.white,
+       borderRadius: BorderRadius.circular(12),
+       boxShadow: [
+         BoxShadow(
+           color: Colors.black.withOpacity(0.05),
+           blurRadius: 6,
+           offset: const Offset(0, 3),
+         ),
+       ],
+       border: Border.all(
+         color: color.withOpacity(0.2),
+         width: 1,
+       ),
+     ),
+     child: Column(
+       crossAxisAlignment: CrossAxisAlignment.start,
+       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+       children: [
+         Row(
+           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+           children: [
+             Container(
+               padding: const EdgeInsets.all(8),
+               decoration: BoxDecoration(
+                 color: color.withOpacity(0.1),
+                 borderRadius: BorderRadius.circular(8),
+               ),
+               child: Icon(icon, size: 20, color: color),
+             ),
+             // Optional: Add a trend indicator
+             Icon(
+               Icons.trending_up, // or trending_down based on your data
+               color: color.withOpacity(0.5),
+               size: 16,
+             ),
+           ],
+         ),
+         Column(
+           crossAxisAlignment: CrossAxisAlignment.start,
+           children: [
+             FittedBox(
+               fit: BoxFit.scaleDown,
+               child: Text(
+                 value,
+                 style: TextStyle(
+                   fontSize: 18,
+                   fontWeight: FontWeight.bold,
+                   color: color,
+                 ),
+               ),
+             ),
+             const SizedBox(height: 4),
+             Text(
+               title,
+               style: TextStyle(
+                 color: Colors.grey[600],
+                 fontSize: 12,
+               ),
+               maxLines: 1,
+               overflow: TextOverflow.ellipsis,
+             ),
+           ],
+         ),
+       ],
+     ),
+   );
+ }
 
-  
+ Widget _buildProductsList(List<Product> products) {
+   final numberFormat = NumberFormat.currency(symbol: _currencySymbol, decimalDigits: 2);
+   
+   if (products.isEmpty) {
+     return Center(
+       child: Column(
+         mainAxisSize: MainAxisSize.min,
+         children: [
+           Icon(
+             Icons.inventory_2_outlined,
+             size: 64,
+             color: Colors.grey[400],
+           ),
+           SizedBox(height: 16),
+           Text(
+             'No products found',
+             style: TextStyle(
+               fontSize: 18,
+               fontWeight: FontWeight.bold,
+               color: Colors.grey[800],
+             ),
+           ),
+           SizedBox(height: 8),
+           Text(
+             'Try adjusting your filters',
+             style: TextStyle(
+               color: Colors.grey[600],
+             ),
+           ),
+         ],
+       ),
+     );
+   }
+   
+   return ListView.builder(
+     padding: const EdgeInsets.all(16),
+     itemCount: products.length + (_hasMoreData ? 1 : 0),
+     itemBuilder: (context, index) {
+       // Load more when reaching near the end
+       if (index >= products.length - 5 && !_isLoadingMore && _hasMoreData) {
+         _loadMoreProducts();
+       }
+       
+       // Show loading indicator at the end
+       if (index == products.length) {
+         return Center(
+           child: Padding(
+             padding: const EdgeInsets.all(16.0),
+             child: CircularProgressIndicator(color: _primaryBlue),
+           ),
+         );
+       }
+       
+       // Regular product item
+       final product = products[index];
+       
+       return Card(
+         elevation: 1,
+         margin: const EdgeInsets.only(bottom: 12),
+         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+         child: InkWell(
+           borderRadius: BorderRadius.circular(12),
+           onTap: () => _showStockUpdateDialog(product),
+           child: Padding(
+             padding: const EdgeInsets.all(16),
+             child: Row(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 // Product image or placeholder
+                 Container(
+                   width: 60,
+                   height: 60,
+                   decoration: BoxDecoration(
+                     color: _lightBlue,
+                     borderRadius: BorderRadius.circular(8),
+                     border: Border.all(color: _borderBlue),
+                   ),
+                   child: product.image != null && product.image!.isNotEmpty
+                       ? ClipRRect(
+                           borderRadius: BorderRadius.circular(8),
+                           child: Image.network(
+                             product.image!,
+                             fit: BoxFit.cover,
+                             errorBuilder: (context, error, stackTrace) => Icon(
+                               Icons.inventory_2_outlined,
+                               color: _primaryBlue,
+                               size: 30,
+                             ),
+                           ),
+                         )
+                       : Icon(
+                           Icons.inventory_2_outlined,
+                           color: _primaryBlue,
+                           size: 30,
+                         ),
+                 ),
+                 
+                 const SizedBox(width: 16),
+                 
+                 // Product details
+                 Expanded(
+                   child: Column(
+                     crossAxisAlignment: CrossAxisAlignment.start,
+                     children: [
+                       Row(
+                         children: [
+                           Expanded(
+                             child: Column(
+                               crossAxisAlignment: CrossAxisAlignment.start,
+                               children: [
+                                 Text(
+                                   product.name,
+                                   style: TextStyle(
+                                     fontWeight: FontWeight.bold,
+                                     fontSize: 16,
+                                     color: Colors.grey[900],
+                                   ),
+                                 ),
+                                 SizedBox(height: 4),
+                                 Text(
+                                   'SKU: ${product.sku}',
+                                   style: TextStyle(
+                                     fontSize: 14,
+                                     color: Colors.grey[600],
+                                   ),
+                                 ),
+                               ],
+                             ),
+                           ),
+                           
+                           // Stock status indicator
+                           Container(
+                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                             decoration: BoxDecoration(
+                               color: _getStockStatusColor(product).withOpacity(0.1),
+                               borderRadius: BorderRadius.circular(16),
+                               border: Border.all(
+                                 color: _getStockStatusColor(product).withOpacity(0.5),
+                               ),
+                             ),
+                             child: Row(
+                               mainAxisSize: MainAxisSize.min,
+                               children: [
+                                 Icon(
+                                   product.stock <= 0
+                                       ? Icons.inventory
+                                       : Icons.inventory_2,
+                                   size: 16,
+                                   color: _getStockStatusColor(product),
+                                 ),
+                                 SizedBox(width: 4),
+                                 Text(
+                                   product.stock.toString(),
+                                   style: TextStyle(
+                                     fontWeight: FontWeight.bold,
+                                     color: _getStockStatusColor(product),
+                                   ),
+                                 ),
+                               ],
+                             ),
+                           ),
+                         ],
+                       ),
+                       
+                       SizedBox(height: 12),
+                       
+                       // Additional product info in a row
+                       Row(
+                         children: [
+                           Expanded(
+                             child: Column(
+                               crossAxisAlignment: CrossAxisAlignment.start,
+                               children: [
+                                 Text(
+                                   'Category',
+                                   style: TextStyle(
+                                     fontSize: 12,
+                                     color: Colors.grey[600],
+                                   ),
+                                 ),
+                                 SizedBox(height: 4),
+                                 Text(
+                                   product.getCategoryName(),
+                                   style: TextStyle(
+                                     fontWeight: FontWeight.w500,
+                                     color: Colors.grey[900],
+                                   ),
+                                 ),
+                               ],
+                             ),
+                           ),
+                           
+                           Expanded(
+                             child: Column(
+                               crossAxisAlignment: CrossAxisAlignment.start,
+                               children: [
+                                 Text(
+                                   'Price',
+                                   style: TextStyle(
+                                     fontSize: 12,
+                                     color: Colors.grey[600],
+                                   ),
+                                 ),
+                                 SizedBox(height: 4),
+                                 Text(
+                                   numberFormat.format(product.price),
+                                   style: TextStyle(
+                                     fontWeight: FontWeight.w500,
+                                     color: _primaryBlue,
+                                   ),
+                                 ),
+                               ],
+                             ),
+                           ),
+                           
+                           Expanded(
+                             child: Column(
+                               crossAxisAlignment: CrossAxisAlignment.start,
+                               children: [
+                                 Text(
+                                   'Value',
+                                   style: TextStyle(
+                                     fontSize: 12,
+                                     color: Colors.grey[600],
+                                   ),
+                                 ),
+                                 SizedBox(height: 4),
+                                 Text(
+                                   numberFormat.format(product.stock * product.price),
+                                   style: TextStyle(
+                                     fontWeight: FontWeight.w500,
+                                     color: Colors.green[700],
+                                   ),
+                                 ),
+                               ],
+                             ),
+                           ),
+                         ],
+                       ),
+                     ],
+                   ),
+                 ),
+                 
+                 // Edit button
+                 Container(
+                   margin: EdgeInsets.only(left: 8),
+                   decoration: BoxDecoration(
+                     color: _primaryBlue.withOpacity(0.1),
+                     shape: BoxShape.circle,
+                   ),
+                   child: IconButton(
+                     icon: const Icon(Icons.edit_outlined),
+                     tooltip: 'Update Stock',
+                     color: _primaryBlue,
+                     onPressed: () => _showStockUpdateDialog(product),
+                   ),
+                 ),
+               ],
+             ),
+           ),
+         ),
+       );
+     },
+   );
+ }
 
-
-
-
-  Widget _buildProductsList(List<Product> products) {
-    final numberFormat = NumberFormat.currency(symbol: _currencySymbol, decimalDigits: 2);
-    
-    if (products.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.inventory_2_outlined,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-            SizedBox(height: 16),
-            Text(
-              'No products found',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Try adjusting your filters',
-              style: TextStyle(
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: products.length + (_hasMoreData ? 1 : 0),
-      itemBuilder: (context, index) {
-        // Load more when reaching near the end
-        if (index >= products.length - 5 && !_isLoadingMore && _hasMoreData) {
-          _loadMoreProducts();
-        }
-        
-        // Show loading indicator at the end
-        if (index == products.length) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-        
-        // Regular product item
-        final product = products[index];
-        
-        return Card(
-          elevation: 1,
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => _showStockUpdateDialog(product),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Product image or placeholder
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: product.image != null && product.image!.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              product.image!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Icon(
-                                Icons.inventory_2_outlined,
-                                color: Colors.grey,
-                                size: 30,
-                              ),
-                            ),
-                          )
-                        : Icon(
-                            Icons.inventory_2_outlined,
-                            color: Colors.grey,
-                            size: 30,
-                          ),
-                  ),
-                  
-                  const SizedBox(width: 16),
-                  
-                  // Product details
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    product.name,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    'SKU: ${product.sku}',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            
-                            // Stock status indicator
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: _getStockStatusColor(product).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: _getStockStatusColor(product).withOpacity(0.5),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    product.stock <= 0
-                                        ? Icons.inventory
-                                        : Icons.inventory_2,
-                                    size: 16,
-                                    color: _getStockStatusColor(product),
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    product.stock.toString(),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: _getStockStatusColor(product),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        
-                        SizedBox(height: 12),
-                        
-                        // Additional product info in a row
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Category',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    product.getCategoryName(),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Price',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    numberFormat.format(product.price),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Value',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    numberFormat.format(product.stock * product.price),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.green[700],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  // Edit button
-                  Container(
-                    margin: EdgeInsets.only(left: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.edit_outlined),
-                      tooltip: 'Update Stock',
-                      color: Colors.blue,
-                      onPressed: () => _showStockUpdateDialog(product),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildProductsGrid(List<Product> products) {
-    final numberFormat = NumberFormat.currency(symbol: _currencySymbol, decimalDigits: 2);
-    
-    if (products.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.inventory_2_outlined,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-            SizedBox(height: 16),
-            Text(
-              'No products found',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Try adjusting your filters',
-              style: TextStyle(
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.75,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: products.length + (_hasMoreData ? 1 : 0),
-      itemBuilder: (context, index) {
-        // Load more when reaching near the end
-        if (index >= products.length - 4 && !_isLoadingMore && _hasMoreData) {
-          _loadMoreProducts();
-        }
-        
-        // Show loading indicator at the end
-        if (index == products.length) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-        
-        // Regular product item
-        final product = products[index];
-        
-        return Card(
-          elevation: 1,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => _showStockUpdateDialog(product),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Product image or placeholder
-                Expanded(
-                  flex: 3,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Container(
-                          color: Colors.grey[200],
-                          child: product.image != null && product.image!.isNotEmpty
-                              ? Image.network(
-                                  product.image!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Center(
-                                    child: Icon(
-                                      Icons.inventory_2_outlined,
-                                      color: Colors.grey,
-                                      size: 40,
-                                    ),
-                                  ),
-                                )
-                              : Center(
-                                  child: Icon(
-                                    Icons.inventory_2_outlined,
-                                    color: Colors.grey,
-                                    size: 40,
-                                  ),
-                                ),
-                        ),
-                        
-                        // Stock status badge
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: _getStockStatusColor(product).withOpacity(0.9),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              product.stock <= 0
-                                  ? 'Out of Stock'
-                                  : product.stock <= product.minStock
-                                      ? 'Low Stock'
-                                      : 'In Stock',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        ),
-                        
-                        // Edit button
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.9),
-                              shape: BoxShape.circle,
-                            ),
-                            child: IconButton(
-                              iconSize: 18,
-                              padding: EdgeInsets.all(6),
-                              constraints: BoxConstraints(),
-                              icon: const Icon(Icons.edit_outlined),
-                              tooltip: 'Update Stock',
-                              color: Colors.blue,
-                              onPressed: () => _showStockUpdateDialog(product),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                
-                // Product details
-                Expanded(
-                  flex: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          product.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          'SKU: ${product.sku}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        
-                        Spacer(),
-                        
-                        // Price and stock row
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Price',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                Text(
-                                  numberFormat.format(product.price),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  'Stock',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                Text(
-                                  product.stock.toString(),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: _getStockStatusColor(product),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+ Widget _buildProductsGrid(List<Product> products) {
+   final numberFormat = NumberFormat.currency(symbol: _currencySymbol, decimalDigits: 2);
+   
+   if (products.isEmpty) {
+     return Center(
+       child: Column(
+         mainAxisSize: MainAxisSize.min,
+         children: [
+           Icon(
+             Icons.inventory_2_outlined,
+             size: 64,
+             color: Colors.grey[400],
+           ),
+           SizedBox(height: 16),
+           Text(
+             'No products found',
+             style: TextStyle(
+               fontSize: 18,
+               fontWeight: FontWeight.bold,
+               color: Colors.grey[800],
+             ),
+           ),
+           SizedBox(height: 8),
+           Text(
+             'Try adjusting your filters',
+             style: TextStyle(
+               color: Colors.grey[600],
+             ),
+           ),
+         ],
+       ),
+     );
+   }
+   
+   return GridView.builder(
+     padding: const EdgeInsets.all(16),
+     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+       crossAxisCount: 2,
+       childAspectRatio: 0.75,
+       crossAxisSpacing: 16,
+       mainAxisSpacing: 16,
+     ),
+     itemCount: products.length + (_hasMoreData ? 1 : 0),
+     itemBuilder: (context, index) {
+       // Load more when reaching near the end
+       if (index >= products.length - 4 && !_isLoadingMore && _hasMoreData) {
+         _loadMoreProducts();
+       }
+       
+       // Show loading indicator at the end
+       if (index == products.length) {
+         return Center(
+           child: Padding(
+             padding: const EdgeInsets.all(16.0),
+             child: CircularProgressIndicator(color: _primaryBlue),
+           ),
+         );
+       }
+       
+       // Regular product item
+       final product = products[index];
+       
+       return Card(
+         elevation: 1,
+         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+         child: InkWell(
+           borderRadius: BorderRadius.circular(12),
+           onTap: () => _showStockUpdateDialog(product),
+           child: Column(
+             crossAxisAlignment: CrossAxisAlignment.stretch,
+             children: [
+               // Product image or placeholder
+               Expanded(
+                 flex: 3,
+                 child: ClipRRect(
+                   borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                   child: Stack(
+                     fit: StackFit.expand,
+                     children: [
+                       Container(
+                         color: _lightBlue,
+                         child: product.image != null && product.image!.isNotEmpty
+                             ? Image.network(
+                                 product.image!,
+                                 fit: BoxFit.cover,
+                                 errorBuilder: (context, error, stackTrace) => Center(
+                                   child: Icon(
+                                     Icons.inventory_2_outlined,
+                                     color: _primaryBlue,
+                                     size: 40,
+                                   ),
+                                 ),
+                               )
+                             : Center(
+                                 child: Icon(
+                                   Icons.inventory_2_outlined,
+                                   color: _primaryBlue,
+                                   size: 40,
+                                 ),
+                               ),
+                       ),
+                       
+                       // Stock status badge
+                       Positioned(
+                         top: 8,
+                         right: 8,
+                         child: Container(
+                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                           decoration: BoxDecoration(
+                             color: _getStockStatusColor(product).withOpacity(0.9),
+                             borderRadius: BorderRadius.circular(12),
+                           ),
+                           child: Text(
+                             product.stock <= 0
+                                 ? 'Out of Stock'
+                                 : product.stock <= product.minStock
+                                     ? 'Low Stock'
+                                     : 'In Stock',
+                             style: TextStyle(
+                               color: Colors.white,
+                               fontWeight: FontWeight.bold,
+                               fontSize: 10,
+                             ),
+                           ),
+                         ),
+                       ),
+                       
+                       // Edit button
+                       Positioned(
+                         top: 8,
+                         left: 8,
+                         child: Container(
+                           decoration: BoxDecoration(
+                             color: Colors.white.withOpacity(0.9),
+                             shape: BoxShape.circle,
+                           ),
+                           child: IconButton(
+                             iconSize: 18,
+                             padding: EdgeInsets.all(6),
+                             constraints: BoxConstraints(),
+                             icon: const Icon(Icons.edit_outlined),
+                             tooltip: 'Update Stock',
+                             color: _primaryBlue,
+                             onPressed: () => _showStockUpdateDialog(product),
+                           ),
+                         ),
+                       ),
+                     ],
+                   ),
+                 ),
+               ),
+               
+               // Product details
+               Expanded(
+                 flex: 2,
+                 child: Padding(
+                   padding: const EdgeInsets.all(12),
+                   child: Column(
+                     crossAxisAlignment: CrossAxisAlignment.start,
+                     children: [
+                       Text(
+                         product.name,
+                         style: TextStyle(
+                           fontWeight: FontWeight.bold,
+                           fontSize: 14,
+                           color: Colors.grey[900],
+                         ),
+                         maxLines: 1,
+                         overflow: TextOverflow.ellipsis,
+                       ),
+                       Text(
+                         'SKU: ${product.sku}',
+                         style: TextStyle(
+                           fontSize: 12,
+                           color: Colors.grey[600],
+                         ),
+                         maxLines: 1,
+                         overflow: TextOverflow.ellipsis,
+                       ),
+                       
+                       Spacer(),
+                       
+                       // Price and stock row
+                       Row(
+                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                         children: [
+                           Column(
+                             crossAxisAlignment: CrossAxisAlignment.start,
+                             children: [
+                               Text(
+                                 'Price',
+                                 style: TextStyle(
+                                   fontSize: 10,
+                                   color: Colors.grey[600],
+                                 ),
+                               ),
+                               Text(
+                                 numberFormat.format(product.price),
+                                 style: TextStyle(
+                                   fontWeight: FontWeight.bold,
+                                   fontSize: 13,
+                                   color: _primaryBlue,
+                                 ),
+                               ),
+                             ],
+                           ),
+                           
+                           Column(
+                             crossAxisAlignment: CrossAxisAlignment.end,
+                             children: [
+                               Text(
+                                 'Stock',
+                                 style: TextStyle(
+                                   fontSize: 10,
+                                   color: Colors.grey[600],
+                                 ),
+                               ),
+                               Text(
+                                 product.stock.toString(),
+                                 style: TextStyle(
+                                   fontWeight: FontWeight.bold,
+                                   fontSize: 13,
+                                   color: _getStockStatusColor(product),
+                                 ),
+                               ),
+                             ],
+                           ),
+                         ],
+                       ),
+                     ],
+                   ),
+                 ),
+               ),
+             ],
+           ),
+         ),
+       );
+     },
+   );
+ }
 }

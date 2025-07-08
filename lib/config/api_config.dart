@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 class ApiConfig {
   // Base URL - Production endpoint
-  static const String baseUrl = 'https://sales.eldogas.co.ke';
+  static const String baseUrl = 'https://sales.opticore.co.ke';
   
   // Auth endpoints
   static const String loginEndpoint = '/api/login';

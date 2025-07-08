@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:pos_app/screens/admin/settings_screen.dart';
 import 'package:pos_app/screens/credit/credit_customers_screen.dart';
 import 'package:pos_app/screens/reports/inventory_report_screen.dart';
 import 'package:pos_app/screens/sales/sale_details_screen.dart';
@@ -117,22 +118,61 @@ class _AdminDashboardState extends State<AdminDashboard>
   Future<void> _logout() async {
     showDialog(
       context: context,
+      barrierDismissible: false, // Prevent dismissing by tapping outside
       builder:
-          (context) => AlertDialog(
+          (dialogContext) => AlertDialog(
             title: const Text("Confirm Logout"),
             content: const Text("Are you sure you want to log out?"),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(dialogContext).pop(),
                 child: const Text("Cancel"),
               ),
               ElevatedButton(
                 onPressed: () async {
-                  Navigator.of(context).pop();
-                  await _authService.logout();
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => LoginScreen()),
+                  // Close dialog first
+                  Navigator.of(dialogContext).pop();
+
+                  // Show a loading indicator
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder:
+                        (context) =>
+                            const Center(child: CircularProgressIndicator()),
                   );
+
+                  try {
+                    // Cancel any pending requests and clear caches if needed
+                    // If you have other services that need cleanup, add them here
+
+                    // Perform the logout operation
+                    await _authService.logout();
+
+                    // Close the loading dialog if it's showing
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
+
+                    // Navigate to login screen and clear all previous routes
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => LoginScreen()),
+                      (route) =>
+                          false, // This predicate removes all previous routes
+                    );
+                  } catch (e) {
+                    // Handle any errors during logout
+                    // Close the loading dialog if it's showing
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error during logout: ${e.toString()}'),
+                      ),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.error,
@@ -298,10 +338,12 @@ class _AdminDashboardState extends State<AdminDashboard>
             ),
             title: const Text('Settings'),
             onTap: () {
-              Navigator.pop(context);
-              // Navigate to settings
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
             },
           ),
+
           const Divider(),
           ListTile(
             leading: Icon(Icons.logout, color: theme.colorScheme.error),
@@ -528,18 +570,15 @@ class _AdminDashboardState extends State<AdminDashboard>
             },
           ),
 
-          // SETTINGS section in drawer
           _buildDrawerItem(
             icon: Icons.settings_outlined,
             title: 'Settings',
             onTap: () {
-              Navigator.pop(context);
-              // Navigate to settings
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Settings will be implemented soon'),
-                  backgroundColor: Theme.of(context).colorScheme.secondary,
-                ),
+              Navigator.pop(context); // Close the drawer first
+
+              // Navigate to settings screen
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
               );
             },
           ),

@@ -20,6 +20,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
   final CategoryService _categoryService = CategoryService();
   final TextEditingController _searchController = TextEditingController();
 
+  // Opticore theme colors
+  final Color _primaryBlue = const Color(0xFF3B82F6); // blue-500
+  final Color _darkBlue = const Color(0xFF2563EB);    // blue-600
+
   List<Product> _products = [];
   List<Category> _categories = [];
   bool _isLoading = true;
@@ -227,65 +231,85 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   // Update product stock
-  Future<void> _updateStock(Product product) async {
-    // Show the enhanced stock update dialog
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder:
-          (context) => StockUpdateDialog(
-            product: product,
-            currencySymbol: _currencySymbol,
-          ),
-    );
+  // In ProductListScreen
+Future<void> _updateStock(Product product) async {
+  // Show the enhanced stock update dialog
+  final result = await showDialog<Map<String, dynamic>>(
+    context: context,
+    builder: (context) => StockUpdateDialog(
+      product: product,
+      currencySymbol: _currencySymbol,
+    ),
+  );
 
-    // If user submitted stock update
-    if (result != null) {
-      try {
-        // Construct notes with operation info for better tracking
-        String notes = result['notes'] ?? '';
-        if (result['operation'] != 'Set to') {
-          String operationInfo =
-              result['operation'] == 'Add'
-                  ? 'Added ${result['input_value']} to stock'
-                  : 'Removed ${result['input_value']} from stock';
+  // If user submitted stock update
+  if (result != null) {
+    try {
+      // Construct notes with operation info for better tracking
+      String notes = result['notes'] ?? '';
+      if (result['operation'] != 'Set to') {
+        String operationInfo =
+            result['operation'] == 'Add'
+                ? 'Added ${result['input_value']} to stock'
+                : 'Removed ${result['input_value']} from stock';
 
-          notes = notes.isEmpty ? operationInfo : '$operationInfo - $notes';
-        }
-
-        await _productService.updateStock(
-          product.id,
-          result['stock'],
-          notes.isNotEmpty ? notes : null,
-        );
-
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Stock updated successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        // Refresh list
-        _loadProducts();
-      } catch (e) {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error updating stock: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        notes = notes.isEmpty ? operationInfo : '$operationInfo - $notes';
       }
+
+      // Update on server
+      final updatedProduct = await _productService.updateStock(
+        product.id,
+        result['stock'],
+        notes.isNotEmpty ? notes : null,
+      );
+      
+      // Update the product in the local list immediately
+      setState(() {
+        // Find and update the product in the existing list
+        final index = _products.indexWhere((p) => p.id == product.id);
+        if (index != -1) {
+          _products[index] = updatedProduct;
+        }
+      });
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Stock updated successfully'),
+          backgroundColor: Colors.green.shade600,
+        ),
+      );
+
+      // Refresh list to ensure everything is up to date
+      _loadProducts();
+    } catch (e) {
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating stock: ${e.toString()}'),
+          backgroundColor: Colors.red.shade600,
+        ),
+      );
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Products'),
-        backgroundColor: Colors.orange.shade500,
+        backgroundColor: _primaryBlue,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_darkBlue, _primaryBlue],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        elevation: 2,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -317,6 +341,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _primaryBlue, width: 2),
+                    ),
                   ),
                   onSubmitted: (_) => _handleSearch(),
                 ),
@@ -328,13 +356,18 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     // Category filter
                     Expanded(
                       child: DropdownButtonFormField<int?>(
+                        isExpanded: true, // Fix for overflow
                         decoration: InputDecoration(
                           labelText: 'Category',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: _primaryBlue, width: 2),
+                          ),
                           contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
+                            horizontal: 12, // Reduced padding
                             vertical: 8,
                           ),
                         ),
@@ -342,13 +375,16 @@ class _ProductListScreenState extends State<ProductListScreen> {
                         items: [
                           const DropdownMenuItem<int?>(
                             value: null,
-                            child: Text('All Categories'),
+                            child: Text('All Categories', overflow: TextOverflow.ellipsis),
                           ),
                           ..._categories
                               .map(
                                 (category) => DropdownMenuItem<int>(
                                   value: category.id,
-                                  child: Text(category.name),
+                                  child: Text(
+                                    category.name,
+                                    overflow: TextOverflow.ellipsis, // Handle long text
+                                  ),
                                 ),
                               )
                               .toList(),
@@ -356,34 +392,39 @@ class _ProductListScreenState extends State<ProductListScreen> {
                         onChanged: _handleCategoryFilterChange,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12), // Reduced spacing
 
                     // Status filter
                     Expanded(
                       child: DropdownButtonFormField<String?>(
+                        isExpanded: true, // Fix for overflow
                         decoration: InputDecoration(
                           labelText: 'Status',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: _primaryBlue, width: 2),
+                          ),
                           contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
+                            horizontal: 12, // Reduced padding
                             vertical: 8,
                           ),
                         ),
                         value: _statusFilter,
-                        items: [
-                          const DropdownMenuItem<String?>(
+                        items: const [
+                          DropdownMenuItem<String?>(
                             value: null,
-                            child: Text('All'),
+                            child: Text('All', overflow: TextOverflow.ellipsis),
                           ),
-                          const DropdownMenuItem<String>(
+                          DropdownMenuItem<String>(
                             value: 'active',
-                            child: Text('Active'),
+                            child: Text('Active', overflow: TextOverflow.ellipsis),
                           ),
-                          const DropdownMenuItem<String>(
+                          DropdownMenuItem<String>(
                             value: 'inactive',
-                            child: Text('Inactive'),
+                            child: Text('Inactive', overflow: TextOverflow.ellipsis),
                           ),
                         ],
                         onChanged: _handleStatusFilterChange,
@@ -399,50 +440,60 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     // Stock status filter
                     Expanded(
                       child: DropdownButtonFormField<String?>(
+                        isExpanded: true, // Fix for overflow
                         decoration: InputDecoration(
                           labelText: 'Stock',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: _primaryBlue, width: 2),
+                          ),
                           contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
+                            horizontal: 12, // Reduced padding
                             vertical: 8,
                           ),
                         ),
                         value: _stockStatusFilter,
-                        items: [
-                          const DropdownMenuItem<String?>(
+                        items: const [
+                          DropdownMenuItem<String?>(
                             value: null,
-                            child: Text('All'),
+                            child: Text('All', overflow: TextOverflow.ellipsis),
                           ),
-                          const DropdownMenuItem<String>(
+                          DropdownMenuItem<String>(
                             value: 'in_stock',
-                            child: Text('In Stock'),
+                            child: Text('In Stock', overflow: TextOverflow.ellipsis),
                           ),
-                          const DropdownMenuItem<String>(
+                          DropdownMenuItem<String>(
                             value: 'low_stock',
-                            child: Text('Low Stock'),
+                            child: Text('Low Stock', overflow: TextOverflow.ellipsis),
                           ),
-                          const DropdownMenuItem<String>(
+                          DropdownMenuItem<String>(
                             value: 'out_of_stock',
-                            child: Text('Out of Stock'),
+                            child: Text('Out of Stock', overflow: TextOverflow.ellipsis),
                           ),
                         ],
                         onChanged: _handleStockStatusFilterChange,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12), // Reduced spacing
 
                     // Sort by dropdown
                     Expanded(
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true, // Fix for overflow
                         decoration: InputDecoration(
                           labelText: 'Sort By',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: _primaryBlue, width: 2),
+                          ),
                           contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
+                            horizontal: 12, // Reduced padding
                             vertical: 8,
                           ),
                         ),
@@ -450,19 +501,19 @@ class _ProductListScreenState extends State<ProductListScreen> {
                         items: const [
                           DropdownMenuItem<String>(
                             value: 'name',
-                            child: Text('Name'),
+                            child: Text('Name', overflow: TextOverflow.ellipsis),
                           ),
                           DropdownMenuItem<String>(
                             value: 'price',
-                            child: Text('Price'),
+                            child: Text('Price', overflow: TextOverflow.ellipsis),
                           ),
                           DropdownMenuItem<String>(
                             value: 'stock',
-                            child: Text('Stock'),
+                            child: Text('Stock', overflow: TextOverflow.ellipsis),
                           ),
                           DropdownMenuItem<String>(
                             value: 'created_at',
-                            child: Text('Newest'),
+                            child: Text('Newest', overflow: TextOverflow.ellipsis),
                           ),
                         ],
                         onChanged: (value) {
@@ -505,12 +556,25 @@ class _ProductListScreenState extends State<ProductListScreen> {
           Expanded(
             child:
                 _isLoading
-                    ? const Center(child: CircularProgressIndicator())
+                    ? CircularProgressIndicator(color: _primaryBlue)
                     : _errorMessage != null
                     ? Center(child: Text(_errorMessage!))
                     : _products.isEmpty
-                    ? const Center(child: Text('No products found'))
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade400),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No products found',
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      )
                     : RefreshIndicator(
+                      color: _primaryBlue,
                       onRefresh: _loadProducts,
                       child: ListView.builder(
                         itemCount: _products.length,
@@ -543,7 +607,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                               8,
                                             ),
                                             child: Image.network(
-                                              '${product.image}', // Adjust URL as needed
+                                              '${product.image}',
                                               width: 50,
                                               height: 50,
                                               fit: BoxFit.cover,
@@ -556,8 +620,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                                   width: 50,
                                                   height: 50,
                                                   color: Colors.grey.shade200,
-                                                  child: const Icon(
+                                                  child: Icon(
                                                     Icons.image_not_supported,
+                                                    color: _primaryBlue,
                                                   ),
                                                 );
                                               },
@@ -571,8 +636,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                             ),
-                                            child: const Icon(
+                                            child: Icon(
                                               Icons.inventory_2_outlined,
+                                              color: _primaryBlue,
                                             ),
                                           ),
                                   title: Text(
@@ -580,6 +646,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                     ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                   subtitle: Text(
                                     product.category != null
@@ -597,7 +665,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                     decoration: BoxDecoration(
                                       color:
                                           product.status == 'active'
-                                              ? Colors.green
+                                              ? _primaryBlue
                                               : Colors.grey,
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -620,27 +688,31 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                         MainAxisAlignment.spaceBetween,
                                     children: [
                                       // SKU and price
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'SKU: ${product.sku}',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade600,
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'SKU: ${product.sku}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Price: $_currencySymbol${product.price.toStringAsFixed(2)}',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.blue.shade800,
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Price: $_currencySymbol${product.price.toStringAsFixed(2)}',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: _primaryBlue,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
 
                                       // Stock
@@ -649,14 +721,15 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                             CrossAxisAlignment.end,
                                         children: [
                                           Row(
+                                            mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Icon(
                                                 Icons.inventory,
                                                 size: 16,
                                                 color:
                                                     isLowStock
-                                                        ? Colors.red
-                                                        : Colors.green,
+                                                        ? Colors.red.shade600
+                                                        : Colors.green.shade600,
                                               ),
                                               const SizedBox(width: 4),
                                               Text(
@@ -666,8 +739,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                                   fontWeight: FontWeight.bold,
                                                   color:
                                                       isLowStock
-                                                          ? Colors.red
-                                                          : Colors.green,
+                                                          ? Colors.red.shade600
+                                                          : Colors.green.shade600,
                                                 ),
                                               ),
                                             ],
@@ -686,66 +759,71 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                   ),
                                 ),
 
-                                ButtonBar(
-                                  alignment: MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    TextButton.icon(
-                                      icon: const Icon(Icons.edit),
-                                      label: const Text('Edit'),
-                                      onPressed: () => _editProduct(product),
-                                    ),
-                                    PopupMenuButton<String>(
-                                      icon: const Icon(Icons.inventory_2),
-                                      tooltip: 'Stock Management',
-                                      onSelected: (value) {
-                                        if (value == 'update') {
-                                          _updateStock(product);
-                                        } else if (value == 'history') {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder:
-                                                  (_) => StockMovementScreen(
-                                                    product: product,
-                                                    currencySymbol:
-                                                        _currencySymbol,
-                                                  ),
-                                            ),
-                                          );
-                                        }
-                                      },
-                                      itemBuilder:
-                                          (context) => [
-                                            const PopupMenuItem(
-                                              value: 'update',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.edit, size: 20),
-                                                  SizedBox(width: 8),
-                                                  Text('Update Stock'),
-                                                ],
-                                              ),
-                                            ),
-                                            const PopupMenuItem(
-                                              value: 'history',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.history, size: 20),
-                                                  SizedBox(width: 8),
-                                                  Text('Stock History'),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                    ),
-                                    TextButton.icon(
-                                      icon: const Icon(Icons.delete),
-                                      label: const Text('Delete'),
-                                      onPressed: () => _deleteProduct(product),
-                                      style: TextButton.styleFrom(
-                                        foregroundColor: Colors.red,
+                                // Use Wrap instead of ButtonBar to avoid overflow issues
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                                  child: Wrap(
+                                    alignment: WrapAlignment.spaceEvenly,
+                                    spacing: 8,
+                                    children: [
+                                      TextButton.icon(
+                                        icon: Icon(Icons.edit, color: _primaryBlue),
+                                        label: Text('Edit', style: TextStyle(color: _primaryBlue)),
+                                        onPressed: () => _editProduct(product),
                                       ),
-                                    ),
-                                  ],
+                                      PopupMenuButton<String>(
+                                        icon: Icon(Icons.inventory_2, color: _primaryBlue),
+                                        tooltip: 'Stock Management',
+                                        onSelected: (value) {
+                                          if (value == 'update') {
+                                            _updateStock(product);
+                                          } else if (value == 'history') {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder:
+                                                    (_) => StockMovementScreen(
+                                                      product: product,
+                                                      currencySymbol:
+                                                          _currencySymbol,
+                                                    ),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                        itemBuilder:
+                                            (context) => [
+                                              PopupMenuItem(
+                                                value: 'update',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.edit, size: 20, color: _primaryBlue),
+                                                    const SizedBox(width: 8),
+                                                    const Text('Update Stock'),
+                                                  ],
+                                                ),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'history',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.history, size: 20, color: _primaryBlue),
+                                                    const SizedBox(width: 8),
+                                                    const Text('Stock History'),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                      ),
+                                      TextButton.icon(
+                                        icon: const Icon(Icons.delete),
+                                        label: const Text('Delete'),
+                                        onPressed: () => _deleteProduct(product),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: Colors.red.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
@@ -763,7 +841,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.chevron_left),
+                    icon: Icon(
+                      Icons.chevron_left,
+                      color: _currentPage > 1 ? _primaryBlue : Colors.grey.shade400,
+                    ),
                     onPressed:
                         _currentPage > 1
                             ? () {
@@ -774,9 +855,23 @@ class _ProductListScreenState extends State<ProductListScreen> {
                             }
                             : null,
                   ),
-                  Text('$_currentPage / $_lastPage'),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.shade100),
+                    ),
+                    child: Text(
+                      '$_currentPage / $_lastPage',
+                      style: TextStyle(color: _primaryBlue, fontWeight: FontWeight.bold),
+                    ),
+                  ),
                   IconButton(
-                    icon: const Icon(Icons.chevron_right),
+                    icon: Icon(
+                      Icons.chevron_right,
+                      color: _currentPage < _lastPage ? _primaryBlue : Colors.grey.shade400,
+                    ),
                     onPressed:
                         _currentPage < _lastPage
                             ? () {
@@ -794,7 +889,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addProduct,
-        backgroundColor: Colors.orange.shade500,
+        backgroundColor: _primaryBlue,
         child: const Icon(Icons.add),
         tooltip: 'Add Product',
       ),

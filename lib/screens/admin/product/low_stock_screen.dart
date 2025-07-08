@@ -21,6 +21,13 @@ class _LowStockScreenState extends State<LowStockScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   
+  // Opticore theme colors
+  final Color primaryBlue = const Color(0xFF3B82F6);
+  final Color darkBlue = const Color(0xFF2563EB);
+  final Color lightBlue = const Color(0xFFEFF6FF);
+  final Color grayBg = const Color(0xFFF9FAFB);
+  final Color borderGray = const Color(0xFFE5E7EB);
+  
   @override
   void initState() {
     super.initState();
@@ -57,44 +64,66 @@ class _LowStockScreenState extends State<LowStockScreen> {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Update Stock'),
+        title: Text('Update Stock', style: TextStyle(color: Colors.grey[900], fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Product: ${product.name}'),
+            Text('Product: ${product.name}', style: const TextStyle(fontWeight: FontWeight.w500)),
             const SizedBox(height: 8),
             Text('Current stock: ${product.stock}'),
             Text('Minimum stock: ${product.minStock}'),
             const SizedBox(height: 16),
             TextField(
               controller: stockController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'New Stock',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: borderGray),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: primaryBlue, width: 2),
+                ),
               ),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: notesController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Notes (optional)',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: borderGray),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: primaryBlue, width: 2),
+                ),
               ),
               maxLines: 2,
             ),
           ],
         ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(null),
-            child: const Text('CANCEL'),
+            child: Text('CANCEL', style: TextStyle(color: Colors.grey[700])),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.of(context).pop({
               'stock': int.tryParse(stockController.text) ?? product.stock,
               'notes': notesController.text,
             }),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
             child: const Text('UPDATE'),
           ),
         ],
@@ -112,9 +141,13 @@ class _LowStockScreenState extends State<LowStockScreen> {
         
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Stock updated successfully'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('Stock updated successfully'),
+            backgroundColor: Colors.green[600],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         );
         
@@ -125,7 +158,11 @@ class _LowStockScreenState extends State<LowStockScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString()),
-            backgroundColor: Colors.red,
+            backgroundColor: Colors.red[600],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         );
       }
@@ -137,7 +174,8 @@ class _LowStockScreenState extends State<LowStockScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Low Stock Products'),
-        backgroundColor: Colors.orange.shade500,
+        backgroundColor: primaryBlue,
+        elevation: 2,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -146,257 +184,390 @@ class _LowStockScreenState extends State<LowStockScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(child: Text(_errorMessage!))
-              : _lowStockProducts.isEmpty
-                  ? const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.check_circle_outline,
-                            size: 80,
-                            color: Colors.green,
+      body: Container(
+        color: grayBg,
+        child: _isLoading
+            ? Center(child: CircularProgressIndicator(color: primaryBlue))
+            : _errorMessage != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 60,
+                          color: Colors.red[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[800],
                           ),
-                          SizedBox(height: 16),
-                          Text(
-                            'No low stock products',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                        ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                          child: Text(
+                            _errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadLowStockProducts,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryBlue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          SizedBox(height: 8),
-                          Text(
-                            'All products have sufficient stock levels',
-                            style: TextStyle(
-                              color: Colors.grey,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : _lowStockProducts.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: 80,
+                              color: Colors.green[600],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No low stock products',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'All products have sufficient stock levels',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Summary header
+                          Container(
+                            padding: const EdgeInsets.all(16.0),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border(
+                                bottom: BorderSide(color: borderGray),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 2,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${_lowStockProducts.length} products need restock',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[900],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red[50],
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.red[100]!),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.warning_amber_rounded,
+                                        size: 18,
+                                        color: Colors.red[800],
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Low Stock Alert',
+                                        style: TextStyle(
+                                          color: Colors.red[800],
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          
+                          // Products list
+                          Expanded(
+                            child: RefreshIndicator(
+                              onRefresh: _loadLowStockProducts,
+                              color: primaryBlue,
+                              child: ListView.builder(
+                                padding: const EdgeInsets.all(16),
+                                itemCount: _lowStockProducts.length,
+                                itemBuilder: (context, index) {
+                                  final product = _lowStockProducts[index];
+                                  final categoryName = product.category != null 
+                                      ? product.category['name'] ?? 'Unknown Category'
+                                      : 'Unknown Category';
+                                  
+                                  return Card(
+                                    margin: const EdgeInsets.only(bottom: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      side: BorderSide(
+                                        color: Colors.red[100]!,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    elevation: 2,
+                                    shadowColor: Colors.black.withOpacity(0.1),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              // Product image or placeholder
+                                              Container(
+                                                width: 60,
+                                                height: 60,
+                                                decoration: BoxDecoration(
+                                                  color: lightBlue,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  border: Border.all(color: borderGray),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black.withOpacity(0.05),
+                                                      blurRadius: 2,
+                                                      offset: const Offset(0, 1),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: product.image != null
+                                                    ? ClipRRect(
+                                                        borderRadius: BorderRadius.circular(10),
+                                                        child: Image.network(
+                                                          product.image!,
+                                                          fit: BoxFit.cover,
+                                                          errorBuilder: (context, error, stackTrace) {
+                                                            return Icon(
+                                                              Icons.inventory_2_outlined,
+                                                              color: primaryBlue,
+                                                            );
+                                                          },
+                                                        ),
+                                                      )
+                                                    : Icon(
+                                                        Icons.inventory_2_outlined,
+                                                        color: primaryBlue,
+                                                      ),
+                                              ),
+                                              const SizedBox(width: 16),
+                                              
+                                              // Product info
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      product.name,
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 16,
+                                                        color: Colors.grey[900],
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 2,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: lightBlue,
+                                                        borderRadius: BorderRadius.circular(12),
+                                                      ),
+                                                      child: Text(
+                                                        categoryName,
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: primaryBlue,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      'SKU: ${product.sku}',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: Colors.grey[600],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              
+                                              // Price
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 6,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: primaryBlue.withOpacity(0.2),
+                                                  ),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black.withOpacity(0.05),
+                                                      blurRadius: 2,
+                                                      offset: const Offset(0, 1),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: Text(
+                                                  '${widget.currencySymbol}${product.price.toStringAsFixed(2)}',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                    color: primaryBlue,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          
+                                          // Stock info with progress bar
+                                          const SizedBox(height: 16),
+                                          Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: grayBg,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: borderGray),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    Text(
+                                                      'Current Stock: ${product.stock}',
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        color: Colors.grey[900],
+                                                      ),
+                                                    ),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 2,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white,
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        border: Border.all(color: borderGray),
+                                                      ),
+                                                      child: Text(
+                                                        'Min Stock: ${product.minStock}',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: Colors.grey[700],
+                                                          fontWeight: FontWeight.w500
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 8),
+                                                ClipRRect(
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  child: LinearProgressIndicator(
+                                                    value: product.minStock > 0
+                                                        ? (product.stock / product.minStock).clamp(0.0, 1.0)
+                                                        : 0,
+                                                    backgroundColor: Colors.grey[300],
+                                                    color: _getStockStatusColor(product),
+                                                    minHeight: 8,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          
+                                          // Action button
+                                          const SizedBox(height: 16),
+                                          SizedBox(
+                                            width: double.infinity,
+                                            child: ElevatedButton.icon(
+                                              onPressed: () => _updateStock(product),
+                                              icon: const Icon(Icons.add_shopping_cart),
+                                              label: const Text('Restock Now'),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: primaryBlue,
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                elevation: 1,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Summary header
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${_lowStockProducts.length} products need restock',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade100,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.warning_amber_rounded,
-                                      size: 18,
-                                      color: Colors.red.shade800,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Low Stock Alert',
-                                      style: TextStyle(
-                                        color: Colors.red.shade800,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        // Products list
-                        Expanded(
-                          child: RefreshIndicator(
-                            onRefresh: _loadLowStockProducts,
-                            child: ListView.builder(
-                              itemCount: _lowStockProducts.length,
-                              itemBuilder: (context, index) {
-                                final product = _lowStockProducts[index];
-                                final categoryName = product.category != null 
-                                    ? product.category['name'] ?? 'Unknown Category'
-                                    : 'Unknown Category';
-                                
-                                return Card(
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    side: BorderSide(
-                                      color: Colors.red.shade300,
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            // Product image or placeholder
-                                            Container(
-                                              width: 50,
-                                              height: 50,
-                                              decoration: BoxDecoration(
-                                                color: Colors.grey.shade200,
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: product.image != null
-                                                  ? ClipRRect(
-                                                      borderRadius: BorderRadius.circular(8),
-                                                      child: Image.network(
-                                                        product.image!,
-                                                        fit: BoxFit.cover,
-                                                        errorBuilder: (context, error, stackTrace) {
-                                                          return const Icon(Icons.inventory_2_outlined);
-                                                        },
-                                                      ),
-                                                    )
-                                                  : const Icon(Icons.inventory_2_outlined),
-                                            ),
-                                            const SizedBox(width: 16),
-                                            
-                                            // Product info
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    product.name,
-                                                    style: const TextStyle(
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 16,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    categoryName,
-                                                    style: TextStyle(
-                                                      color: Colors.grey.shade600,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    'SKU: ${product.sku}',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.grey.shade700,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            
-                                            // Price
-                                            Text(
-                                              '${widget.currencySymbol}${product.price.toStringAsFixed(2)}',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
-                                                color: Colors.blue.shade800,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        
-                                        // Stock info with progress bar
-                                        const SizedBox(height: 16),
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Row(
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                    children: [
-                                                      Text(
-                                                        'Current Stock: ${product.stock}',
-                                                        style: const TextStyle(
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                      Text(
-                                                        'Min Stock: ${product.minStock}',
-                                                        style: TextStyle(
-                                                          color: Colors.grey.shade700,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  LinearProgressIndicator(
-                                                    value: product.minStock > 0
-                                                        ? (product.stock / product.minStock).clamp(0.0, 1.0)
-                                                        : 0,
-                                                    backgroundColor: Colors.grey.shade300,
-                                                    color: _getStockStatusColor(product),
-                                                    minHeight: 8,
-                                                    borderRadius: BorderRadius.circular(4),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        
-                                        // Action button
-                                        const SizedBox(height: 16),
-                                        SizedBox(
-                                          width: double.infinity,
-                                          child: ElevatedButton.icon(
-                                            onPressed: () => _updateStock(product),
-                                            icon: const Icon(Icons.add_shopping_cart),
-                                            label: const Text('Restock Now'),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.orange.shade500,
-                                              foregroundColor: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+      ),
     );
   }
   
   // Helper method to get color based on stock level
   Color _getStockStatusColor(Product product) {
     if (product.stock == 0) {
-      return Colors.red;
+      return Colors.red[600]!;
     } else if (product.stock <= product.minStock * 0.5) {
-      return Colors.orange;
+      return Colors.orange[600]!;
     } else {
-      return Colors.yellow.shade700;
+      return Colors.yellow[700]!;
     }
   }
 }

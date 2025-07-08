@@ -589,65 +589,72 @@ class ProductService {
   }
 
   // Update product stock
-  Future<Product> updateStock(int id, int newStock, String? notes) async {
-    try {
-      final token = await storage.read(key: ApiConfig.authTokenKey);
+ // In ProductService
+Future<Product> updateStock(int id, int newStock, String? notes) async {
+  try {
+    final token = await storage.read(key: ApiConfig.authTokenKey);
 
-      if (token == null) {
-        throw Exception('No authentication token found');
+    if (token == null) {
+      throw Exception('No authentication token found');
+    }
+
+    final endpoint = '${ApiConfig.productsEndpoint}/$id/update-stock';
+    final requestData = {'new_stock': newStock, 'notes': notes};
+
+    // Log the request for debugging
+    ApiConfig.logApiRequest('POST', endpoint, requestData);
+
+    final response = await http
+        .post(
+          Uri.parse(ApiConfig.baseUrl + endpoint),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode(requestData),
+        )
+        .timeout(Duration(milliseconds: ApiConfig.connectionTimeout));
+
+    // Log response for debugging
+    ApiConfig.logApiResponse(
+      endpoint,
+      response.statusCode,
+      'Response received',
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      
+      // Debug log to verify the structure of the response
+      if (ApiConfig.enableDebugLogs) {
+        debugPrint('📊 Stock update response: ${response.body}');
       }
-
-      final endpoint = '${ApiConfig.productsEndpoint}/$id/update-stock';
-      final requestData = {'new_stock': newStock, 'notes': notes};
-
-      // Log the request for debugging
-      ApiConfig.logApiRequest('POST', endpoint, requestData);
-
-      final response = await http
-          .post(
-            Uri.parse(ApiConfig.baseUrl + endpoint),
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            body: jsonEncode(requestData),
-          )
-          .timeout(Duration(milliseconds: ApiConfig.connectionTimeout));
-
-      // Log response for debugging
+      
+      // Make sure we're accessing the right property
+      final productData = data['product'] ?? data;
+      
+      // Return the updated product
+      return Product.fromJson(productData);
+    } else {
+      // Log the error response
       ApiConfig.logApiResponse(
         endpoint,
         response.statusCode,
-        'Response received',
+        response.body,
+        isError: true,
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return Product.fromJson(data['product']);
-      } else {
-        // Log the error response
-        ApiConfig.logApiResponse(
-          endpoint,
-          response.statusCode,
-          response.body,
-          isError: true,
-        );
-
-        // Parse error message if available
-        final errorData = jsonDecode(response.body);
-        final errorMessage = errorData['message'] ?? 'Failed to update stock';
-        throw Exception(errorMessage);
-      }
-    } on SocketException {
-      throw Exception('Network error - please check your internet connection');
-    } on TimeoutException {
-      throw Exception('Request timed out - please try again');
-    } catch (e) {
-      debugPrint('Error updating stock: $e');
-      rethrow;
+      // Parse error message if available
+      final errorData = jsonDecode(response.body);
+      final errorMessage = errorData['message'] ?? 'Failed to update stock';
+      throw Exception(errorMessage);
     }
+  } catch (e) {
+    debugPrint('Error updating stock: $e');
+    rethrow;
   }
+}
 
   // Get low stock products
   Future<List<Product>> getLowStockProducts() async {

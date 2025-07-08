@@ -23,6 +23,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   bool _obscurePassword = true;
   String? _errorMessage;
 
+  // Opticore theme colors
+  final Color _primaryColor = const Color(0xFF3B82F6); // blue-500
+  final Color _primaryDarkColor = const Color(0xFF2563EB); // blue-600
+  final Color _primaryLightColor = const Color(0xFF60A5FA); // blue-400
+  final Color _dangerColor = const Color(0xFFEF4444); // red-500
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -120,8 +126,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Colors.orange.shade600,
-              Colors.orange.shade400,
+              _primaryColor,
+              _primaryDarkColor,
             ],
           ),
         ),
@@ -157,17 +163,42 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           Center(
                             child: Column(
                               children: [
-                                CustomPaint(
-                              painter: EldoGasCylinderIcon(),
-                              size: const Size(80, 80),
-                            ),
+                                Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    color: _primaryColor.withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.router,
+                                      size: 40,
+                                      color: _primaryColor,
+                                    ),
+                                  ),
+                                ),
                                 const SizedBox(height: 16),
-                                Text(
-                                  'Eldo Gas',
-                                  style: TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.orange.shade700,
+                                RichText(
+                                  text: TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: 'Opti',
+                                        style: TextStyle(
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey.shade800,
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: 'core',
+                                        style: TextStyle(
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.bold,
+                                          color: _primaryColor,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -176,11 +207,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           const SizedBox(height: 32),
                           
                           // Sign In Title
-                          const Text(
+                          Text(
                             'Sign In',
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade800,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -192,14 +224,25 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               padding: const EdgeInsets.all(12),
                               margin: const EdgeInsets.only(bottom: 24),
                               decoration: BoxDecoration(
-                                color: Colors.red.shade50,
+                                color: _dangerColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.red.shade200),
+                                border: Border.all(color: _dangerColor.withOpacity(0.3)),
                               ),
-                              child: Text(
-                                _errorMessage!,
-                                style: TextStyle(color: Colors.red.shade800),
-                                textAlign: TextAlign.center,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    color: _dangerColor,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _errorMessage!,
+                                      style: TextStyle(color: _dangerColor),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           
@@ -210,15 +253,21 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             decoration: InputDecoration(
                               labelText: 'Email Address',
                               hintText: 'your@email.com',
-                              prefixIcon: Icon(Icons.email_outlined, color: Colors.orange.shade500),
+                              prefixIcon: Icon(Icons.email_outlined, color: _primaryColor),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(color: Colors.grey.shade300),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.orange.shade500, width: 2),
+                                borderSide: BorderSide(color: _primaryColor, width: 2),
                               ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -239,13 +288,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             decoration: InputDecoration(
                               labelText: 'Password',
                               hintText: '••••••••',
-                              prefixIcon: Icon(Icons.lock_outline, color: Colors.orange.shade500),
+                              prefixIcon: Icon(Icons.lock_outline, color: _primaryColor),
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _obscurePassword 
                                     ? Icons.visibility_off_outlined 
                                     : Icons.visibility_outlined,
-                                  color: Colors.orange.shade500,
+                                  color: _primaryColor,
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -259,8 +308,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.orange.shade500, width: 2),
+                                borderSide: BorderSide(color: _primaryColor, width: 2),
                               ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -284,7 +339,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                         _rememberMe = value ?? false;
                                       });
                                     },
-                                    activeColor: Colors.orange.shade500,
+                                    activeColor: _primaryColor,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(4),
                                     ),
@@ -297,15 +352,21 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   // TODO: Implement forgot password functionality
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Forgot password feature coming soon'),
-                                      backgroundColor: Colors.orange.shade500,
+                                      content: const Text('Forgot password feature coming soon'),
+                                      backgroundColor: _primaryColor,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
                                     ),
                                   );
                                 },
-                                child: Text(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: _primaryColor,
+                                ),
+                                child: const Text(
                                   'Forgot password?',
                                   style: TextStyle(
-                                    color: Colors.orange.shade600,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -315,29 +376,53 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           const SizedBox(height: 32),
                           
                           // Login button
-                          ElevatedButton(
-                            onPressed: _isLoading ? null : _login,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.orange.shade500,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _primaryColor.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                              gradient: LinearGradient(
+                                colors: [_primaryColor, _primaryDarkColor],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
                               ),
-                              minimumSize: const Size(double.infinity, 54),
                             ),
-                            child: _isLoading
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 3,
-                                  )
-                                : const Text(
-                                    'Sign in',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _login,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor: Colors.transparent,
+                                disabledForegroundColor: Colors.white.withOpacity(0.5),
+                                shadowColor: Colors.transparent,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                minimumSize: const Size(double.infinity, 54),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 3,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Sign in',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
-                                  ),
+                            ),
                           ),
                         ],
                       ),

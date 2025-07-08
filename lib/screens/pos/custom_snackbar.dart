@@ -1,3 +1,6 @@
+
+
+
 import 'package:flutter/material.dart';
 
 class CustomSnackbar {
@@ -17,18 +20,33 @@ class CustomSnackbar {
           ),
           SizedBox(width: 8),
           Expanded(
-            child: Text(message),
+            child: Text(
+              message,
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),
-      backgroundColor: isError ? Colors.red : Colors.green.shade600,
+      backgroundColor: isError 
+          ? Colors.red.shade600 
+          : const Color(0xFF3B82F6), // Blue-500 for success
       duration: duration,
-      action: action,
+      action: action != null
+          ? SnackBarAction(
+              label: action.label,
+              textColor: Colors.white,
+              onPressed: action.onPressed,
+            )
+          : null,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
       margin: EdgeInsets.all(16),
+      elevation: 1,
     );
     
     ScaffoldMessenger.of(context).hideCurrentSnackBar();

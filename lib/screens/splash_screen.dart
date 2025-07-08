@@ -20,6 +20,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late Animation<Offset> _slideAnimation;
   late Animation<double> _rotateAnimation;
 
+  // Opticore theme colors
+  final Color _primaryColor = const Color(0xFF3B82F6); // blue-500
+  final Color _primaryDarkColor = const Color(0xFF2563EB); // blue-600
+  final Color _primaryLightColor = const Color(0xFF60A5FA); // blue-400
+
   @override
   void initState() {
     super.initState();
@@ -111,9 +116,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 begin: Alignment.topRight,
                 end: Alignment.bottomLeft,
                 colors: [
-                  const Color(0xFFD35400),  // Deeper orange
-                  const Color(0xFFE67E22),  // Medium orange
-                  const Color(0xFFF39C12),  // Lighter orange/amber
+                  _primaryColor,
+                  _primaryDarkColor,
+                  const Color(0xFF1E40AF), // blue-800
                 ],
               ),
             ),
@@ -123,7 +128,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           Opacity(
             opacity: 0.05,
             child: Container(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 image: DecorationImage(
                   image: AssetImage('assets/images/pattern.png'),
                   repeat: ImageRepeat.repeat,
@@ -132,7 +137,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             ),
           ),
           
-          // Decorative large cylinders
+          // Decorative large network icons
           Positioned(
             top: -screenSize.height * 0.15,
             right: -screenSize.width * 0.2,
@@ -140,12 +145,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               turns: _rotateAnimation,
               child: Opacity(
                 opacity: 0.1,
-                child: CustomPaint(
-                  painter: LPGCylinderPainter(
-                    baseColor: Colors.white,
-                    borderColor: Colors.white70,
-                  ),
-                  size: Size(screenSize.width * 0.6, screenSize.width * 0.6),
+                child: Icon(
+                  Icons.lan,
+                  size: screenSize.width * 0.6,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -158,12 +161,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               turns: Tween<double>(begin: 0, end: -0.05).animate(_controller),
               child: Opacity(
                 opacity: 0.1,
-                child: CustomPaint(
-                  painter: LPGCylinderPainter(
-                    baseColor: Colors.white,
-                    borderColor: Colors.white70,
-                  ),
-                  size: Size(screenSize.width * 0.5, screenSize.width * 0.5),
+                child: Icon(
+                  Icons.router,
+                  size: screenSize.width * 0.5,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -189,13 +190,27 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                           scale: _scaleAnimation,
                           child: FadeTransition(
                             opacity: _fadeAnimation,
-                            child: CustomPaint(
-                              painter: LPGCylinderPainter(
-                                baseColor: Colors.white,
-                                borderColor: Colors.white70,
-                                showShadow: true,
+                            child: Container(
+                              width: 160,
+                              height: 160,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 20,
+                                    spreadRadius: 5,
+                                  ),
+                                ],
                               ),
-                              size: const Size(160, 160),
+                              child: Center(
+                                child: Icon(
+                                  Icons.router,
+                                  size: 80,
+                                  color: _primaryColor,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -210,7 +225,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                             child: Column(
                               children: [
                                 Text(
-                                  "ELDO GAS",
+                                  "OPTICORE",
                                   style: TextStyle(
                                     fontSize: 42,
                                     fontWeight: FontWeight.w900,
@@ -231,7 +246,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                                 
                                 // Tagline
                                 Text(
-                                  "POINT OF SALE SYSTEM",
+                                  "NETWORKING POS SYSTEM",
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -327,4 +342,3 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     super.dispose();
   }
 }
-
