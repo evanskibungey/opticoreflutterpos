@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pos_app/models/sale.dart';
 import 'package:pos_app/services/sale_service.dart';
+import 'package:pos_app/services/thermal_printer_service.dart';
+import 'package:pos_app/screens/admin/printer_settings_screen.dart';
 
 class SaleDetailsScreen extends StatefulWidget {
   final int saleId;
@@ -15,8 +17,10 @@ class SaleDetailsScreen extends StatefulWidget {
 
 class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
   final SaleService _saleService = SaleService();
+  final ThermalPrinterService _printerService = ThermalPrinterService.instance;
   
   bool _isLoading = true;
+  bool _isPrinting = false;
   String? _errorMessage;
   Sale? _sale;
   
@@ -131,6 +135,155 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
             child: const Text('Void Sale'),
           ),
         ],
+      ),
+    );
+  }
+  
+  // Print receipt using thermal printer
+  Future<void> _printReceipt() async {
+    if (_sale == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No sale data available to print'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!_printerService.isConnected) {
+      _showPrinterSetupDialog();
+      return;
+    }
+
+    setState(() {
+      _isPrinting = true;
+    });
+
+    try {
+      final success = await _printerService.printSaleReceipt(
+        sale: _sale!,
+        currencySymbol: 'KSh',
+      );
+
+      if (mounted) {
+        setState(() {
+          _isPrinting = false;
+        });
+
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle_outline, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('Receipt printed successfully!'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        } else {
+          _showPrintError('Failed to print receipt');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isPrinting = false;
+        });
+        _showPrintError('Print error: ${e.toString()}');
+      }
+    }
+  }
+
+  // Show printer setup dialog
+  void _showPrinterSetupDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.print, color: Colors.blue),
+            SizedBox(width: 12),
+            Text('Printer Setup Required'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'No thermal printer is connected. Would you like to set up a printer now?',
+            ),
+            SizedBox(height: 12),
+            Text('- Connect your thermal printer to WiFi'),
+            Text('- Make sure it\'s on the same network'),
+            Text('- Configure printer settings'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PrinterSettingsScreen(),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Setup Printer'),
+          ),
+        ],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  // Show print error
+  void _showPrintError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.white),
+            SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        action: SnackBarAction(
+          label: 'Setup',
+          textColor: Colors.white,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PrinterSettingsScreen(),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -436,20 +589,26 @@ class _SaleDetailsScreenState extends State<SaleDetailsScreen> {
           
           // Actions
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Implement print functionality
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Print functionality will be implemented soon'),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.print),
-                label: const Text('Print Receipt'),
-              ),
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+          ElevatedButton.icon(
+          onPressed: _isPrinting ? null : _printReceipt,
+          icon: _isPrinting 
+            ? SizedBox(
+              width: 16,
+            height: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+                : const Icon(Icons.print),
+                  label: Text(_isPrinting ? 'Printing...' : 'Print Receipt'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
               const SizedBox(width: 16),
               OutlinedButton.icon(
                 onPressed: () {

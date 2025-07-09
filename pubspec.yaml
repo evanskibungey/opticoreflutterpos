@@ -51,6 +51,10 @@ dependencies:
   animations: ^2.0.7
   share_plus: ^10.1.4
   url_launcher: ^6.1.10
+  esc_pos_printer: ^4.1.0
+  esc_pos_utils: ^1.1.0
+  network_info_plus: ^4.0.2
+  ping_discover_network_forked: ^0.0.1
 
 
 

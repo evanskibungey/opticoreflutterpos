@@ -1,12 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:pos_app/models/category.dart';
 import 'package:pos_app/models/product.dart';
 import 'package:pos_app/screens/pos/cart_screen.dart';
 import 'package:pos_app/services/category_service.dart';
 import 'package:pos_app/services/product_service.dart';
+import 'package:pos_app/services/thermal_printer_service.dart';
 import 'package:pos_app/config/api_config.dart';
 import 'package:pos_app/widget/NetworkImageHelper.dart';
+import 'package:pos_app/widget/printer_status_widget.dart';
+import 'package:pos_app/screens/admin/printer_settings_screen.dart';
+
+/// Opticore theme colors - matching web version
+class OpticoreColors {
+  static const Color blue50 = Color(0xFFEFF6FF);
+  static const Color blue400 = Color(0xFF60A5FA);
+  static const Color blue500 = Color(0xFF3B82F6);
+  static const Color blue600 = Color(0xFF2563EB);
+  static const Color blue700 = Color(0xFF1D4ED8);
+  static const Color gray50 = Color(0xFFF9FAFB);
+  static const Color gray100 = Color(0xFFF3F4F6);
+  static const Color gray200 = Color(0xFFE5E7EB);
+  static const Color gray300 = Color(0xFFD1D5DB);
+  static const Color gray400 = Color(0xFF9CA3AF);
+  static const Color gray500 = Color(0xFF6B7280);
+  static const Color gray600 = Color(0xFF4B5563);
+  static const Color gray700 = Color(0xFF374151);
+  static const Color gray800 = Color(0xFF1F2937);
+  static const Color green500 = Color(0xFF10B981);
+  static const Color red500 = Color(0xFFEF4444);
+  static const Color orange500 = Color(0xFFF97316);
+}
 
 class POSSalesScreen extends StatefulWidget {
   const POSSalesScreen({Key? key}) : super(key: key);
@@ -125,8 +150,6 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
           status: 'active',
           categoryId: _selectedCategoryId,
           page: currentPage,
-          // Consider increasing the per_page parameter if supported by your API
-          // perPage: 50, // Uncomment if your API supports this
         );
         
         // Add products from the current page
@@ -187,12 +210,10 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
   void _addToCart(Product product) {
     // Check if product has stock
     if (product.stock <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('This product is out of stock'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
+      _showSnackBar(
+        'This product is out of stock',
+        OpticoreColors.red500,
+        icon: Icons.error_outline,
       );
       return;
     }
@@ -203,14 +224,10 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
     if (existingItemIndex >= 0) {
       // Check if adding one more would exceed stock
       if (_cart[existingItemIndex].quantity + 1 > product.stock) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Cannot add more. Only ${product.stock} available in stock.',
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
+        _showSnackBar(
+          'Cannot add more. Only ${product.stock} available in stock.',
+          OpticoreColors.red500,
+          icon: Icons.warning_amber,
         );
         return;
       }
@@ -239,27 +256,48 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
     }
 
     // Show success snackbar
+    _showSnackBar(
+      '${product.name} added to cart',
+      OpticoreColors.green500,
+      icon: Icons.check_circle,
+      action: SnackBarAction(
+        label: 'VIEW CART',
+        textColor: Colors.white,
+        onPressed: () => _navigateToCart(),
+      ),
+    );
+  }
+
+  // Enhanced snackbar with icon support
+  void _showSnackBar(
+    String message, 
+    Color color, {
+    IconData? icon,
+    SnackBarAction? action,
+    Duration duration = const Duration(seconds: 3),
+  }) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.white),
-            SizedBox(width: 12),
+            if (icon != null) ...[
+              Icon(icon, color: Colors.white),
+              SizedBox(width: 12),
+            ],
             Expanded(
               child: Text(
-                '${product.name} added to cart',
+                message,
                 style: TextStyle(color: Colors.white),
               ),
             ),
           ],
         ),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 2),
+        backgroundColor: color,
+        duration: duration,
         behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'VIEW CART',
-          textColor: Colors.white,
-          onPressed: () => _navigateToCart(),
+        action: action,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
         ),
       ),
     );
@@ -283,60 +321,88 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
     );
   }
 
-  // Get cart count badge
+  // Get cart count badge with enhanced design
   Widget _buildCartBadge() {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFEFF6FF), // Blue-50
-            shape: BoxShape.circle,
-          ),
-          child: IconButton(
-            icon: Icon(Icons.shopping_cart, color: const Color(0xFF1D4ED8)), // Blue-700
-            onPressed: _cart.isEmpty ? null : _navigateToCart,
-          ),
-        ),
-        if (_cart.isNotEmpty)
-          Positioned(
-            top: 5,
-            right: 5,
-            child: Container(
-              padding: EdgeInsets.all(4),
+    return Consumer<ThermalPrinterService>(
+      builder: (context, printerService, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
               decoration: BoxDecoration(
-                color: const Color(0xFFEF4444), // Red
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 2,
-                    offset: Offset(0, 1),
-                  ),
-                ],
-              ),
-              constraints: BoxConstraints(minWidth: 18, minHeight: 18),
-              child: Text(
-                '${_cart.length}',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                color: OpticoreColors.blue50,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: printerService.isConnected 
+                      ? OpticoreColors.green500.withOpacity(0.3)
+                      : OpticoreColors.orange500.withOpacity(0.3),
+                  width: 2,
                 ),
-                textAlign: TextAlign.center,
+              ),
+              child: IconButton(
+                icon: Icon(
+                  Icons.shopping_cart, 
+                  color: OpticoreColors.blue700,
+                ),
+                onPressed: _cart.isEmpty ? null : _navigateToCart,
               ),
             ),
-          ),
-      ],
+            if (_cart.isNotEmpty)
+              Positioned(
+                top: 5,
+                right: 5,
+                child: Container(
+                  padding: EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: OpticoreColors.red500,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 2,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  constraints: BoxConstraints(minWidth: 18, minHeight: 18),
+                  child: Text(
+                    '${_cart.length}',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            // Printer status indicator on cart
+            if (!printerService.isConnected)
+              Positioned(
+                bottom: 5,
+                left: 5,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: OpticoreColors.orange500,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
   
-  // Product card widget - extracted for better performance
+  // Product card widget - enhanced with printer awareness
   Widget _buildProductCard(Product product, int index) {
     final bool isOutOfStock = product.stock <= 0;
     
     // Create animation delay based on index
-    final delay = (index % 20) * 0.025; // Smaller delay for smoother loading
+    final delay = (index % 20) * 0.025;
     final animation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
@@ -344,7 +410,6 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
       ),
     );
 
-    // Use RepaintBoundary to optimize rendering
     return RepaintBoundary(
       child: FadeTransition(
         opacity: animation,
@@ -443,7 +508,7 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF3B82F6), // Blue-500
+                              color: OpticoreColors.blue500,
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
@@ -486,14 +551,14 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF), // Blue-50
+                              color: OpticoreColors.blue50,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               product.getCategoryName(),
                               style: TextStyle(
                                 fontSize: 10,
-                                color: const Color(0xFF1D4ED8), // Blue-700
+                                color: OpticoreColors.blue700,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -508,7 +573,7 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
-                                color: Colors.grey.shade800,
+                                color: OpticoreColors.gray800,
                                 height: 1.2,
                               ),
                               maxLines: 2,
@@ -532,7 +597,7 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 18,
-                                        color: const Color(0xFF1D4ED8), // Blue-700
+                                        color: OpticoreColors.blue700,
                                       ),
                                     ),
                                     // Flexible pricing indicator
@@ -581,11 +646,11 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
                                       ? null
                                       : () => _addToCart(product),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF3B82F6), // Blue-500
+                                    backgroundColor: OpticoreColors.blue500,
                                     foregroundColor: Colors.white,
-                                    disabledBackgroundColor: Colors.grey.shade300,
+                                    disabledBackgroundColor: OpticoreColors.gray300,
                                     elevation: 2,
-                                    shadowColor: const Color(0xFFDEEBFF), // Blue-100
+
                                     shape: CircleBorder(),
                                     padding: EdgeInsets.zero,
                                   ),
@@ -634,7 +699,7 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
             Icon(
               Icons.search_off,
               size: 72,
-              color: Colors.grey.shade300,
+              color: OpticoreColors.gray300,
             ),
             SizedBox(height: 24),
             Text(
@@ -642,14 +707,14 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800,
+                color: OpticoreColors.gray800,
               ),
             ),
             SizedBox(height: 12),
             Text(
               'Try a different search term or category',
               style: TextStyle(
-                color: Colors.grey.shade600,
+                color: OpticoreColors.gray600,
                 fontSize: 16,
               ),
               textAlign: TextAlign.center,
@@ -661,10 +726,10 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
                 setState(() {
                   _selectedCategoryId = null;
                 });
-                _loadData(); // Reload data from API
+                _loadData();
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3B82F6), // Blue-500
+                backgroundColor: OpticoreColors.blue500,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -698,7 +763,7 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
                 width: 60,
                 child: CircularProgressIndicator(
                   value: _loadingProgress > 0 ? _loadingProgress : null,
-                  color: const Color(0xFF3B82F6), // Blue-500
+                  color: OpticoreColors.blue500,
                   strokeWidth: 3,
                 ),
               ),
@@ -719,7 +784,7 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
               ? 'Loading products (${_allProducts.length} loaded)...'
               : 'Loading products...',
             style: TextStyle(
-              color: const Color(0xFF1D4ED8), // Blue-700
+              color: OpticoreColors.blue700,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -752,7 +817,7 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
             Icon(
               Icons.error_outline,
               size: 64,
-              color: Colors.red.shade400,
+              color: OpticoreColors.red500,
             ),
             SizedBox(height: 16),
             Text(
@@ -760,14 +825,14 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.red.shade700,
+                color: OpticoreColors.red500,
               ),
             ),
             SizedBox(height: 12),
             Text(
               _errorMessage!,
               style: TextStyle(
-                color: Colors.grey.shade700,
+                color: OpticoreColors.gray700,
                 fontSize: 16,
               ),
               textAlign: TextAlign.center,
@@ -776,7 +841,7 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
             ElevatedButton.icon(
               onPressed: _loadData,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3B82F6), // Blue-500
+                backgroundColor: OpticoreColors.blue500,
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -804,15 +869,15 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
     // Create a gradient for the app
     final mainGradient = LinearGradient(
       colors: [
-        const Color(0xFF60A5FA), // Blue-400
-        const Color(0xFF3B82F6), // Blue-500
+        OpticoreColors.blue400,
+        OpticoreColors.blue500,
       ],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
     
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB), // Gray-50
+      backgroundColor: OpticoreColors.gray50,
       appBar: AppBar(
         title: Text(
           'Point of Sale',
@@ -826,341 +891,379 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
         ),
         elevation: 0,
         actions: [
+          // Printer status indicator in app bar
+          AppBarPrinterStatus(showText: false),
+          
           _buildCartBadge(),
           Container(
             margin: EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF), // Blue-50
+              color: OpticoreColors.blue50,
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: Icon(Icons.refresh, color: const Color(0xFF1D4ED8)), // Blue-700
+              icon: Icon(Icons.refresh, color: OpticoreColors.blue700),
               onPressed: _loadData,
               tooltip: 'Refresh',
             ),
           ),
         ],
       ),
-      floatingActionButton:
-          _cart.isNotEmpty
-              ? FloatingActionButton.extended(
-                onPressed: _navigateToCart,
-                label: Row(
-                  children: [
-                    Text(
-                      'View Cart',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    SizedBox(width: 4),
-                    Container(
-                      padding: EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '${_cart.length}',
-                        style: TextStyle(
-                          color: const Color(0xFF1D4ED8), // Blue-700
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                icon: Icon(Icons.shopping_cart_checkout),
-                backgroundColor: const Color(0xFF3B82F6), // Blue-500
-                elevation: 4,
-                extendedPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              )
-              : null,
-      body: _isLoading
-          ? _buildLoadingIndicator()
-          : _errorMessage != null
-              ? _buildErrorState()
-              : Column(
+      floatingActionButton: Consumer<ThermalPrinterService>(
+        builder: (context, printerService, child) {
+          // Show different FABs based on cart state and printer status
+          if (_cart.isNotEmpty) {
+            return FloatingActionButton.extended(
+              onPressed: _navigateToCart,
+              label: Row(
                 children: [
-                  // Search and filter container with subtle gradient background
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFFEFF6FF), // Blue-50
-                          Colors.white
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(12),
-                        bottomRight: Radius.circular(12),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        // Search field with enhanced design
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 10,
-                                spreadRadius: 1,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: TextField(
-                            controller: _searchController,
-                            decoration: InputDecoration(
-                              hintText: 'Search products...',
-                              hintStyle: TextStyle(
-                                color: Colors.grey.shade400,
-                                fontWeight: FontWeight.w400,
-                              ),
-                              prefixIcon: Icon(
-                                Icons.search,
-                                color: const Color(0xFF3B82F6), // Blue-500
-                              ),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  Icons.clear,
-                                  color: Colors.grey.shade400,
-                                ),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _filterProducts();
-                                },
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide.none,
-                              ),
-                              filled: true,
-                              fillColor: Colors.white,
-                              contentPadding: EdgeInsets.symmetric(vertical: 16),
-                            ),
-                            onChanged: (_) => _filterProducts(),
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey.shade800,
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 16),
-
-                        // Category filter - horizontal scrollable list
-                        Container(
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.7),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            children: [
-                              // "All Categories" chip
-                              Padding(
-                                padding: const EdgeInsets.only(left: 8.0, right: 8.0),
-                                child: FilterChip(
-                                  label: Text(
-                                    'All Categories',
-                                    style: TextStyle(
-                                      fontWeight: _selectedCategoryId == null
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                      color: _selectedCategoryId == null
-                                          ? Colors.white
-                                          : Colors.grey.shade800,
-                                    ),
-                                  ),
-                                  selected: _selectedCategoryId == null,
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      _selectedCategoryId = null;
-                                      _searchController.clear();
-                                    });
-                                    _loadData(); // Reload data from API
-                                  },
-                                  backgroundColor: Colors.grey.shade100,
-                                  selectedColor: const Color(0xFF3B82F6), // Blue-500
-                                  checkmarkColor: Colors.white,
-                                  shape: StadiumBorder(
-                                    side: BorderSide(
-                                      color: _selectedCategoryId == null
-                                          ? Colors.transparent
-                                          : Colors.grey.shade300,
-                                      width: 1,
-                                    ),
-                                  ),
-                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                ),
-                              ),
-
-                              // Find Gas Refill category and display it first
-                              ..._categories
-                                  .where(
-                                    (category) => category.name == 'Gas Refill',
-                                  )
-                                  .map((category) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(
-                                        right: 8.0,
-                                      ),
-                                      child: FilterChip(
-                                        label: Text(
-                                          category.name,
-                                          style: TextStyle(
-                                            fontWeight: _selectedCategoryId == category.id
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
-                                            color: _selectedCategoryId == category.id
-                                                ? Colors.white
-                                                : Colors.grey.shade800,
-                                          ),
-                                        ),
-                                        selected: _selectedCategoryId == category.id,
-                                        onSelected: (selected) {
-                                          setState(() {
-                                            _selectedCategoryId =
-                                                selected ? category.id : null;
-                                            _searchController.clear();
-                                          });
-                                          _loadData(); // Reload data from API
-                                        },
-                                        backgroundColor: Colors.grey.shade100,
-                                        selectedColor: const Color(0xFF3B82F6), // Blue-500
-                                        checkmarkColor: Colors.white,
-                                        shape: StadiumBorder(
-                                          side: BorderSide(
-                                            color: _selectedCategoryId == category.id
-                                                ? Colors.transparent
-                                                : Colors.grey.shade300,
-                                            width: 1,
-                                          ),
-                                        ),
-                                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                      ),
-                                    );
-                                  })
-                                  .toList(),
-
-                              // Display all other categories afterward
-                              ..._categories
-                                  .where(
-                                    (category) => category.name != 'Gas Refill',
-                                  )
-                                  .map((category) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(
-                                        right: 8.0,
-                                      ),
-                                      child: FilterChip(
-                                        label: Text(
-                                          category.name,
-                                          style: TextStyle(
-                                            fontWeight: _selectedCategoryId == category.id
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
-                                            color: _selectedCategoryId == category.id
-                                                ? Colors.white
-                                                : Colors.grey.shade800,
-                                          ),
-                                        ),
-                                        selected: _selectedCategoryId == category.id,
-                                        onSelected: (selected) {
-                                          setState(() {
-                                            _selectedCategoryId =
-                                                selected ? category.id : null;
-                                            _searchController.clear();
-                                          });
-                                          _loadData(); // Reload data from API
-                                        },
-                                        backgroundColor: Colors.grey.shade100,
-                                        selectedColor: const Color(0xFF3B82F6), // Blue-500
-                                        checkmarkColor: Colors.white,
-                                        shape: StadiumBorder(
-                                          side: BorderSide(
-                                            color: _selectedCategoryId == category.id
-                                                ? Colors.transparent
-                                                : Colors.grey.shade300,
-                                            width: 1,
-                                          ),
-                                        ),
-                                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                      ),
-                                    );
-                                  })
-                                  .toList(),
-                            ],
-                          ),
-                        ),
-                      ],
+                  Text(
+                    'View Cart',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
                     ),
                   ),
-
-                  // Products grid
-                  Expanded(
-                    child: _filteredProducts.isEmpty
-                        ? _buildEmptyProductsPlaceholder()
-                        : NotificationListener<ScrollNotification>(
-                            onNotification: (ScrollNotification scrollInfo) {
-                              // Delayed card loading when scrolling for better performance
-                              // Load more items as user scrolls
-                              if (scrollInfo is ScrollEndNotification) {
-                                // Check if animation controller has completed
-                                if (!_animationController.isAnimating && 
-                                    _animationController.isCompleted) {
-                                  // Reset for next animation
-                                  _animationController.reset();
-                                  _animationController.forward();
-                                }
-                              }
-                              return false;
-                            },
-                            child: GridView.builder(
-                              controller: _scrollController,
-                              padding: EdgeInsets.all(16),
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: MediaQuery.of(context).size.width > 800
-                                    ? 4
-                                    : MediaQuery.of(context).size.width > 600
-                                        ? 3
-                                        : 2,
-                                childAspectRatio: 0.62,
-                                crossAxisSpacing: 16,
-                                mainAxisSpacing: 16,
-                              ),
-                              itemCount: _filteredProducts.length,
-                              cacheExtent: 500, // Increase cache to reduce rebuilds
-                              itemBuilder: (context, index) {
-                                final product = _filteredProducts[index];
-                                return _buildProductCard(product, index);
-                              },
-                            ),
-                          ),
+                  SizedBox(width: 4),
+                  Container(
+                    padding: EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${_cart.length}',
+                      style: TextStyle(
+                        color: OpticoreColors.blue700,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ],
               ),
+              icon: Icon(Icons.shopping_cart_checkout),
+              backgroundColor: OpticoreColors.blue500,
+              elevation: 4,
+              extendedPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            );
+          } else if (!printerService.isConnected) {
+            // Show printer setup FAB when cart is empty and printer not connected
+            return FloatingActionButton.extended(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PrinterSettingsScreen(),
+                  ),
+                );
+              },
+              label: Text(
+                'Setup Printer',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              icon: Icon(Icons.print_disabled),
+              backgroundColor: OpticoreColors.orange500,
+              elevation: 4,
+              extendedPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            );
+          }
+          
+          return SizedBox.shrink();
+        },
+      ),
+      body: Column(
+        children: [
+          // Printer status banner at top
+          PrinterStatusBanner(),
+          
+          // Main content
+          Expanded(
+            child: _isLoading
+                ? _buildLoadingIndicator()
+                : _errorMessage != null
+                    ? _buildErrorState()
+                    : Column(
+                        children: [
+                          // Search and filter container with subtle gradient background
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  OpticoreColors.blue50,
+                                  Colors.white
+                                ],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ),
+                              borderRadius: BorderRadius.only(
+                                bottomLeft: Radius.circular(12),
+                                bottomRight: Radius.circular(12),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 5),
+                                ),
+                              ],
+                            ),
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                // Search field with enhanced design
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 10,
+                                        spreadRadius: 1,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: TextField(
+                                    controller: _searchController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Search products...',
+                                      hintStyle: TextStyle(
+                                        color: OpticoreColors.gray400,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                      prefixIcon: Icon(
+                                        Icons.search,
+                                        color: OpticoreColors.blue500,
+                                      ),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          Icons.clear,
+                                          color: OpticoreColors.gray400,
+                                        ),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          _filterProducts();
+                                        },
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      contentPadding: EdgeInsets.symmetric(vertical: 16),
+                                    ),
+                                    onChanged: (_) => _filterProducts(),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: OpticoreColors.gray800,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(height: 16),
+
+                                // Category filter - horizontal scrollable list
+                                Container(
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.7),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: ListView(
+                                    scrollDirection: Axis.horizontal,
+                                    children: [
+                                      // "All Categories" chip
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 8.0, right: 8.0),
+                                        child: FilterChip(
+                                          label: Text(
+                                            'All Categories',
+                                            style: TextStyle(
+                                              fontWeight: _selectedCategoryId == null
+                                                  ? FontWeight.bold
+                                                  : FontWeight.normal,
+                                              color: _selectedCategoryId == null
+                                                  ? Colors.white
+                                                  : OpticoreColors.gray800,
+                                            ),
+                                          ),
+                                          selected: _selectedCategoryId == null,
+                                          onSelected: (selected) {
+                                            setState(() {
+                                              _selectedCategoryId = null;
+                                              _searchController.clear();
+                                            });
+                                            _loadData();
+                                          },
+                                          backgroundColor: OpticoreColors.gray100,
+                                          selectedColor: OpticoreColors.blue500,
+                                          checkmarkColor: Colors.white,
+                                          shape: StadiumBorder(
+                                            side: BorderSide(
+                                              color: _selectedCategoryId == null
+                                                  ? Colors.transparent
+                                                  : OpticoreColors.gray300,
+                                              width: 1,
+                                            ),
+                                          ),
+                                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                        ),
+                                      ),
+
+                                      // Find Gas Refill category and display it first
+                                      ..._categories
+                                          .where(
+                                            (category) => category.name == 'Gas Refill',
+                                          )
+                                          .map((category) {
+                                            return Padding(
+                                              padding: const EdgeInsets.only(
+                                                right: 8.0,
+                                              ),
+                                              child: FilterChip(
+                                                label: Text(
+                                                  category.name,
+                                                  style: TextStyle(
+                                                    fontWeight: _selectedCategoryId == category.id
+                                                        ? FontWeight.bold
+                                                        : FontWeight.normal,
+                                                    color: _selectedCategoryId == category.id
+                                                        ? Colors.white
+                                                        : OpticoreColors.gray800,
+                                                  ),
+                                                ),
+                                                selected: _selectedCategoryId == category.id,
+                                                onSelected: (selected) {
+                                                  setState(() {
+                                                    _selectedCategoryId =
+                                                        selected ? category.id : null;
+                                                    _searchController.clear();
+                                                  });
+                                                  _loadData();
+                                                },
+                                                backgroundColor: OpticoreColors.gray100,
+                                                selectedColor: OpticoreColors.blue500,
+                                                checkmarkColor: Colors.white,
+                                                shape: StadiumBorder(
+                                                  side: BorderSide(
+                                                    color: _selectedCategoryId == category.id
+                                                        ? Colors.transparent
+                                                        : OpticoreColors.gray300,
+                                                    width: 1,
+                                                  ),
+                                                ),
+                                                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                              ),
+                                            );
+                                          })
+                                          .toList(),
+
+                                      // Display all other categories afterward
+                                      ..._categories
+                                          .where(
+                                            (category) => category.name != 'Gas Refill',
+                                          )
+                                          .map((category) {
+                                            return Padding(
+                                              padding: const EdgeInsets.only(
+                                                right: 8.0,
+                                              ),
+                                              child: FilterChip(
+                                                label: Text(
+                                                  category.name,
+                                                  style: TextStyle(
+                                                    fontWeight: _selectedCategoryId == category.id
+                                                        ? FontWeight.bold
+                                                        : FontWeight.normal,
+                                                    color: _selectedCategoryId == category.id
+                                                        ? Colors.white
+                                                        : OpticoreColors.gray800,
+                                                  ),
+                                                ),
+                                                selected: _selectedCategoryId == category.id,
+                                                onSelected: (selected) {
+                                                  setState(() {
+                                                    _selectedCategoryId =
+                                                        selected ? category.id : null;
+                                                    _searchController.clear();
+                                                  });
+                                                  _loadData();
+                                                },
+                                                backgroundColor: OpticoreColors.gray100,
+                                                selectedColor: OpticoreColors.blue500,
+                                                checkmarkColor: Colors.white,
+                                                shape: StadiumBorder(
+                                                  side: BorderSide(
+                                                    color: _selectedCategoryId == category.id
+                                                        ? Colors.transparent
+                                                        : OpticoreColors.gray300,
+                                                    width: 1,
+                                                  ),
+                                                ),
+                                                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                              ),
+                                            );
+                                          })
+                                          .toList(),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Products grid
+                          Expanded(
+                            child: _filteredProducts.isEmpty
+                                ? _buildEmptyProductsPlaceholder()
+                                : NotificationListener<ScrollNotification>(
+                                    onNotification: (ScrollNotification scrollInfo) {
+                                      if (scrollInfo is ScrollEndNotification) {
+                                        if (!_animationController.isAnimating && 
+                                            _animationController.isCompleted) {
+                                          _animationController.reset();
+                                          _animationController.forward();
+                                        }
+                                      }
+                                      return false;
+                                    },
+                                    child: GridView.builder(
+                                      controller: _scrollController,
+                                      padding: EdgeInsets.all(16),
+                                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: MediaQuery.of(context).size.width > 800
+                                            ? 4
+                                            : MediaQuery.of(context).size.width > 600
+                                                ? 3
+                                                : 2,
+                                        childAspectRatio: 0.62,
+                                        crossAxisSpacing: 16,
+                                        mainAxisSpacing: 16,
+                                      ),
+                                      itemCount: _filteredProducts.length,
+                                      cacheExtent: 500,
+                                      itemBuilder: (context, index) {
+                                        final product = _filteredProducts[index];
+                                        return _buildProductCard(product, index);
+                                      },
+                                    ),
+                                  ),
+                          ),
+                        ],
+                      ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// Cart item model (shared between screens)
+// Cart item model (shared between screens) - unchanged from original
 class CartItem {
   final int id;
   final String name;

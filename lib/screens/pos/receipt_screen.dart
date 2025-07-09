@@ -4,6 +4,9 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io' show Platform;
 import 'dart:convert'; // For URL encoding
+import 'package:provider/provider.dart';
+import 'package:pos_app/services/thermal_printer_service.dart';
+import 'package:pos_app/screens/admin/printer_settings_screen.dart';
 
 /// Opticore theme colors - matching web version
 class OpticoreColors {
@@ -33,10 +36,15 @@ class OpticoreColors {
   // Additional colors
   static const Color green500 = Color(0xFF10B981);
   static const Color red500 = Color(0xFFEF4444);
+  static const Color orange50 = Color(0xFFFFF7ED);
+  static const Color orange200 = Color(0xFFFED7AA);
+  static const Color orange500 = Color(0xFFF97316);
+  static const Color orange700 = Color(0xFFC2410C);
+  static const Color orange800 = Color(0xFF9A3412);
   static const Color whatsapp = Color(0xFF25D366); // WhatsApp green
 }
 
-class ReceiptScreen extends StatelessWidget {
+class ReceiptScreen extends StatefulWidget {
   final String receiptNumber;
   final Map<String, dynamic> receiptData;
   final VoidCallback onClose;
@@ -47,6 +55,13 @@ class ReceiptScreen extends StatelessWidget {
     required this.receiptData,
     required this.onClose
   }) : super(key: key);
+
+  @override
+  _ReceiptScreenState createState() => _ReceiptScreenState();
+}
+
+class _ReceiptScreenState extends State<ReceiptScreen> {
+  bool _isPrinting = false;
 
   // Helper method to safely format numeric values
   String formatNumber(dynamic value) {
@@ -71,6 +86,240 @@ class ReceiptScreen extends StatelessWidget {
     return value.toString();
   }
   
+  // Print receipt using thermal printer with Provider integration
+  Future<void> _printReceipt() async {
+    final printerService = context.read<ThermalPrinterService>();
+    
+    if (!printerService.isConnected) {
+      // Show printer settings dialog
+      _showPrinterSetupDialog();
+      return;
+    }
+
+    setState(() {
+      _isPrinting = true;
+    });
+
+    try {
+      final success = await printerService.printReceipt(
+        receiptNumber: widget.receiptNumber,
+        receiptData: widget.receiptData,
+        currencySymbol: 'KSh',
+      );
+
+      if (mounted) {
+        setState(() {
+          _isPrinting = false;
+        });
+
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle_outline, color: Colors.white),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text('2 receipt copies printed successfully! (Customer & Shop copy)'),
+                  ),
+                ],
+              ),
+              backgroundColor: OpticoreColors.green500,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        } else {
+          _showPrintError('Failed to print receipt');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isPrinting = false;
+        });
+        _showPrintError('Print error: ${e.toString()}');
+      }
+    }
+  }
+
+  // Show printer setup dialog with enhanced UI
+  void _showPrinterSetupDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: OpticoreColors.orange500.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.print_disabled, 
+                color: OpticoreColors.orange500,
+                size: 24,
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Printer Setup Required',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: OpticoreColors.gray800,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: OpticoreColors.orange50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: OpticoreColors.orange200),
+              ),
+              child: Text(
+                'No thermal printer is connected. You need to set up a printer to print receipts.',
+                style: TextStyle(color: OpticoreColors.gray700),
+              ),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Setup Steps:',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: OpticoreColors.gray800,
+              ),
+            ),
+            SizedBox(height: 8),
+            _buildSetupStep('1', 'Connect your thermal printer to WiFi'),
+            _buildSetupStep('2', 'Make sure it\'s on the same network'),
+            _buildSetupStep('3', 'Configure printer settings'),
+            _buildSetupStep('4', 'Test the connection'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: OpticoreColors.gray600,
+            ),
+            child: Text(
+              'Cancel',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PrinterSettingsScreen(),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: OpticoreColors.blue500,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            icon: Icon(Icons.settings, size: 18),
+            label: Text(
+              'Setup Printer',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSetupStep(String number, String text) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: OpticoreColors.blue500,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 14,
+                color: OpticoreColors.gray700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Show print error with improved feedback
+  void _showPrintError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.white),
+            SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: OpticoreColors.red500,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        action: SnackBarAction(
+          label: 'Setup',
+          textColor: Colors.white,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PrinterSettingsScreen(),
+              ),
+            );
+          },
+        ),
+        duration: Duration(seconds: 5),
+      ),
+    );
+  }
+
   // Format receipt data into a shareable text message
   String formatReceiptForSharing(
     String receiptNumber,
@@ -118,17 +367,17 @@ class ReceiptScreen extends StatelessWidget {
   // Share receipt via WhatsApp with improved handling
   Future<void> shareViaWhatsApp(BuildContext context, String phoneNumber) async {
     // Parse receipt data here to ensure we have local variables for error handling
-    final date = receiptData['date'] != null
-        ? DateTime.parse(receiptData['date'])
+    final date = widget.receiptData['date'] != null
+        ? DateTime.parse(widget.receiptData['date'])
         : DateTime.now();
-    final items = List<Map<String, dynamic>>.from(receiptData['items'] ?? []);
-    final dynamic total = receiptData['total'] ?? 0.0;
-    final paymentMethod = receiptData['payment_method'] ?? 'cash';
-    final customer = receiptData['customer'] ?? {'name': 'Walk-in Customer', 'phone': '-'};
+    final items = List<Map<String, dynamic>>.from(widget.receiptData['items'] ?? []);
+    final dynamic total = widget.receiptData['total'] ?? 0.0;
+    final paymentMethod = widget.receiptData['payment_method'] ?? 'cash';
+    final customer = widget.receiptData['customer'] ?? {'name': 'Walk-in Customer', 'phone': '-'};
     
     // Format the receipt text
     final receiptText = formatReceiptForSharing(
-      receiptNumber,
+      widget.receiptNumber,
       date,
       items,
       total,
@@ -277,8 +526,8 @@ class ReceiptScreen extends StatelessWidget {
   // Show dialog to get customer phone number
   void showPhoneNumberDialog(BuildContext context) {
     // Default to customer phone if available (for credit sales)
-    final paymentMethod = receiptData['payment_method'] ?? 'cash';
-    final customer = receiptData['customer'] ?? {'name': 'Walk-in Customer', 'phone': ''};
+    final paymentMethod = widget.receiptData['payment_method'] ?? 'cash';
+    final customer = widget.receiptData['customer'] ?? {'name': 'Walk-in Customer', 'phone': ''};
     final initialPhone = paymentMethod == 'credit' ? customer['phone'] ?? '' : '';
     
     final phoneController = TextEditingController(text: initialPhone);
@@ -326,7 +575,7 @@ class ReceiptScreen extends StatelessWidget {
               controller: phoneController,
               decoration: InputDecoration(
                 labelText: 'Phone Number',
-                hintText: '+254700123456',
+                hintText: '+254113131335',
                 prefixIcon: Icon(Icons.phone, color: OpticoreColors.blue500),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -411,22 +660,22 @@ class ReceiptScreen extends StatelessWidget {
     final isSmallScreen = screenSize.width < 360;
     
     // Format date
-    final date = receiptData['date'] != null
-        ? DateTime.parse(receiptData['date'])
+    final date = widget.receiptData['date'] != null
+        ? DateTime.parse(widget.receiptData['date'])
         : DateTime.now();
     final formattedDate = DateFormat('yyyy-MM-dd HH:mm').format(date);
     
     // Extract items
-    final items = List<Map<String, dynamic>>.from(receiptData['items'] ?? []);
+    final items = List<Map<String, dynamic>>.from(widget.receiptData['items'] ?? []);
     
     // Calculate total
-    final dynamic total = receiptData['total'] ?? 0.0;
+    final dynamic total = widget.receiptData['total'] ?? 0.0;
     
     // Extract payment method
-    final paymentMethod = receiptData['payment_method'] ?? 'cash';
+    final paymentMethod = widget.receiptData['payment_method'] ?? 'cash';
     
     // Extract customer details
-    final customer = receiptData['customer'] ?? {'name': 'Walk-in Customer', 'phone': '-'};
+    final customer = widget.receiptData['customer'] ?? {'name': 'Walk-in Customer', 'phone': '-'};
     
     // Create the Opticore gradient for the app bar
     final opticoreGradient = LinearGradient(
@@ -459,36 +708,80 @@ class ReceiptScreen extends StatelessWidget {
         ),
         elevation: 0,
         actions: [
+          // Printer status indicator in app bar with Consumer
+          Consumer<ThermalPrinterService>(
+            builder: (context, printerService, child) {
+              return Container(
+                margin: EdgeInsets.symmetric(horizontal: 4),
+                child: IconButton(
+                  icon: Stack(
+                    children: [
+                      Icon(
+                        Icons.print,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      if (!printerService.isConnected)
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: OpticoreColors.red500,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 1),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  onPressed: () {
+                    if (printerService.isConnected) {
+                      _printReceipt();
+                    } else {
+                      _showPrinterSetupDialog();
+                    }
+                  },
+                  tooltip: printerService.isConnected 
+                      ? 'Print Receipt' 
+                      : 'Setup Printer',
+                ),
+              );
+            },
+          ),
+          // Print button with enhanced state management
           Container(
             margin: EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
               shape: BoxShape.circle,
             ),
-            child: IconButton(
-              icon: Icon(Icons.print, color: Colors.white),
-              onPressed: () {
-                // TODO: Implement printing functionality
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        Icon(Icons.info_outline, color: Colors.white),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text('Printing is not implemented in this demo'),
+            child: Consumer<ThermalPrinterService>(
+              builder: (context, printerService, child) {
+                return IconButton(
+                  icon: _isPrinting 
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Icon(
+                          printerService.isConnected 
+                              ? Icons.print 
+                              : Icons.print_disabled, 
+                          color: Colors.white,
                         ),
-                      ],
-                    ),
-                    backgroundColor: OpticoreColors.blue600,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
+                  onPressed: _isPrinting ? null : _printReceipt,
+                  tooltip: printerService.isConnected 
+                      ? 'Print Receipt' 
+                      : 'Printer Not Connected',
                 );
               },
-              tooltip: 'Print Receipt',
             ),
           ),
         ],
@@ -532,7 +825,7 @@ class ReceiptScreen extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Receipt #$receiptNumber',
+                                    'Receipt #${widget.receiptNumber}',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
@@ -1053,77 +1346,141 @@ class ReceiptScreen extends StatelessWidget {
                   ),
                 ),
                 
-                // Action buttons - Opticore styled
+                // Action buttons with enhanced printer status awareness
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  child: Column(
                     children: [
-                      // Share via WhatsApp button - Opticore styled with WhatsApp color
-                      ElevatedButton.icon(
-                        onPressed: () => showPhoneNumberDialog(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: OpticoreColors.whatsapp,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          elevation: 1,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        icon: Icon(Icons.chat, size: 18),
-                        label: Text(
-                          'Share via WhatsApp',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-
-                      // New Sale Button - Opticore styled gradient button
-                      ElevatedButton(
-                        onPressed: onClose,
-                        style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          elevation: 1,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          shadowColor: OpticoreColors.blue200,
-                        ),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                OpticoreColors.blue500,
-                                OpticoreColors.blue600,
-                              ],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
+                      // Printer status banner (if not connected)
+                      Consumer<ThermalPrinterService>(
+                        builder: (context, printerService, child) {
+                          if (printerService.isConnected) {
+                            return SizedBox.shrink();
+                          }
+                          
+                          return Container(
+                            margin: EdgeInsets.only(bottom: 16),
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: OpticoreColors.orange50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: OpticoreColors.orange200),
                             ),
                             child: Row(
-                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.add_shopping_cart, size: 18),
+                                Icon(
+                                  Icons.info_outline,
+                                  color: OpticoreColors.orange500,
+                                  size: 20,
+                                ),
                                 SizedBox(width: 8),
-                                Text(
-                                  'New Sale',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                Expanded(
+                                  child: Text(
+                                    'Printer not connected. Set up a printer to enable printing.',
+                                    style: TextStyle(
+                                      color: OpticoreColors.orange800,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => PrinterSettingsScreen(),
+                                      ),
+                                    );
+                                  },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: OpticoreColors.orange700,
+                                    padding: EdgeInsets.symmetric(horizontal: 8),
+                                  ),
+                                  child: Text(
+                                    'Setup',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
+                          );
+                        },
+                      ),
+                      
+                      // Action buttons
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          // Share via WhatsApp button - Opticore styled with WhatsApp color
+                          ElevatedButton.icon(
+                            onPressed: () => showPhoneNumberDialog(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: OpticoreColors.whatsapp,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              elevation: 1,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            icon: Icon(Icons.chat, size: 18),
+                            label: Text(
+                              'Share via WhatsApp',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                           ),
-                        ),
+
+                          // New Sale Button - Opticore styled gradient button
+                          ElevatedButton(
+                            onPressed: widget.onClose,
+                            style: ElevatedButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              elevation: 1,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              shadowColor: OpticoreColors.blue200,
+                            ),
+                            child: Ink(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    OpticoreColors.blue500,
+                                    OpticoreColors.blue600,
+                                  ],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.add_shopping_cart, size: 18),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'New Sale',
+                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
