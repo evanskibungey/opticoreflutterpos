@@ -42,6 +42,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _costPriceController = TextEditingController();
+  final TextEditingController _minSellingPriceController = TextEditingController(); // New controller
+  final TextEditingController _maxSellingPriceController = TextEditingController(); // New controller
   final TextEditingController _stockController = TextEditingController();
   final TextEditingController _minStockController = TextEditingController();
   
@@ -61,6 +63,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       _descriptionController.text = widget.product!.description ?? '';
       _priceController.text = widget.product!.price.toString();
       _costPriceController.text = widget.product!.costPrice.toString();
+      _minSellingPriceController.text = widget.product!.minSellingPrice?.toString() ?? '';
+      _maxSellingPriceController.text = widget.product!.maxSellingPrice?.toString() ?? '';
       _stockController.text = widget.product!.stock.toString();
       _minStockController.text = widget.product!.minStock.toString();
       _selectedCategoryId = widget.product!.categoryId;
@@ -84,6 +88,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _descriptionController.dispose();
     _priceController.dispose();
     _costPriceController.dispose();
+    _minSellingPriceController.dispose();
+    _maxSellingPriceController.dispose();
     _stockController.dispose();
     _minStockController.dispose();
     super.dispose();
@@ -99,6 +105,43 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Please select a category'),
+          backgroundColor: Colors.red[600],
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+      return false;
+    }
+    
+    // Validate price ranges
+    final price = double.tryParse(_priceController.text) ?? 0;
+    final minPrice = _minSellingPriceController.text.isNotEmpty 
+        ? double.tryParse(_minSellingPriceController.text) 
+        : null;
+    final maxPrice = _maxSellingPriceController.text.isNotEmpty 
+        ? double.tryParse(_maxSellingPriceController.text) 
+        : null;
+    
+    if (minPrice != null && minPrice > price) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Minimum selling price must be less than or equal to selling price'),
+          backgroundColor: Colors.red[600],
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+      return false;
+    }
+    
+    if (maxPrice != null && maxPrice < price) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Maximum selling price must be greater than or equal to selling price'),
           backgroundColor: Colors.red[600],
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -192,6 +235,12 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         'category_id': _selectedCategoryId,
         'price': double.parse(_priceController.text),
         'cost_price': double.parse(_costPriceController.text),
+        'min_selling_price': _minSellingPriceController.text.isNotEmpty 
+            ? double.parse(_minSellingPriceController.text) 
+            : null,
+        'max_selling_price': _maxSellingPriceController.text.isNotEmpty 
+            ? double.parse(_maxSellingPriceController.text) 
+            : null,
         'stock': int.parse(_stockController.text),
         'min_stock': int.parse(_minStockController.text),
         'status': _status,
@@ -538,6 +587,124 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                                     ),
                                   ),
                                 ],
+                              ),
+                              const SizedBox(height: 16),
+                              
+                              // Price Range Fields
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: lightBlue.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: primaryBlue.withOpacity(0.3)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.tune,
+                                          color: primaryBlue,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Price Range (Optional)',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: primaryBlue,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Set minimum and maximum selling prices to allow flexible pricing during sales.',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextFormField(
+                                            controller: _minSellingPriceController,
+                                            decoration: InputDecoration(
+                                              labelText: 'Min Selling Price',
+                                              prefixText: widget.currencySymbol,
+                                              hintText: 'Optional',
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                                borderSide: BorderSide(color: borderGray),
+                                              ),
+                                              focusedBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                                borderSide: BorderSide(color: primaryBlue, width: 2),
+                                              ),
+                                              filled: true,
+                                              fillColor: Colors.white,
+                                            ),
+                                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                                            ],
+                                            validator: (value) {
+                                              if (value != null && value.isNotEmpty) {
+                                                if (double.tryParse(value) == null) {
+                                                  return 'Invalid price';
+                                                }
+                                                if (double.parse(value) < 0) {
+                                                  return 'Must be >= 0';
+                                                }
+                                              }
+                                              return null;
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: TextFormField(
+                                            controller: _maxSellingPriceController,
+                                            decoration: InputDecoration(
+                                              labelText: 'Max Selling Price',
+                                              prefixText: widget.currencySymbol,
+                                              hintText: 'Optional',
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                                borderSide: BorderSide(color: borderGray),
+                                              ),
+                                              focusedBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                                borderSide: BorderSide(color: primaryBlue, width: 2),
+                                              ),
+                                              filled: true,
+                                              fillColor: Colors.white,
+                                            ),
+                                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                                            ],
+                                            validator: (value) {
+                                              if (value != null && value.isNotEmpty) {
+                                                if (double.tryParse(value) == null) {
+                                                  return 'Invalid price';
+                                                }
+                                                if (double.parse(value) < 0) {
+                                                  return 'Must be >= 0';
+                                                }
+                                              }
+                                              return null;
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                               const SizedBox(height: 16),
                               

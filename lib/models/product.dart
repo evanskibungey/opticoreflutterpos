@@ -11,6 +11,8 @@ class Product {
   final String? serialNumber; // Made nullable since it might not always be present
   final double price;
   final double costPrice;
+  final double? minSellingPrice; // New field for price range
+  final double? maxSellingPrice; // New field for price range
   final int stock;
   final int minStock;
   final String? image;
@@ -28,6 +30,8 @@ class Product {
     this.serialNumber, // Made optional
     required this.price,
     required this.costPrice,
+    this.minSellingPrice, // New optional field
+    this.maxSellingPrice, // New optional field
     required this.stock,
     required this.minStock,
     this.image,
@@ -74,6 +78,8 @@ class Product {
       // Handle price values safely
       double extractedPrice = 0.0;
       double extractedCostPrice = 0.0;
+      double? extractedMinSellingPrice;
+      double? extractedMaxSellingPrice;
       
       if (json.containsKey('price') && json['price'] != null) {
         extractedPrice = double.tryParse(json['price'].toString()) ?? 0.0;
@@ -81,6 +87,15 @@ class Product {
       
       if (json.containsKey('cost_price') && json['cost_price'] != null) {
         extractedCostPrice = double.tryParse(json['cost_price'].toString()) ?? 0.0;
+      }
+      
+      // Handle price range fields
+      if (json.containsKey('min_selling_price') && json['min_selling_price'] != null) {
+        extractedMinSellingPrice = double.tryParse(json['min_selling_price'].toString());
+      }
+      
+      if (json.containsKey('max_selling_price') && json['max_selling_price'] != null) {
+        extractedMaxSellingPrice = double.tryParse(json['max_selling_price'].toString());
       }
       
       // Handle integer values safely
@@ -106,6 +121,8 @@ class Product {
         serialNumber: json['serial_number'],
         price: extractedPrice,
         costPrice: extractedCostPrice,
+        minSellingPrice: extractedMinSellingPrice,
+        maxSellingPrice: extractedMaxSellingPrice,
         stock: extractedStock,
         minStock: extractedMinStock,
         image: json['image'],
@@ -124,6 +141,8 @@ class Product {
         sku: '',
         price: 0.0,
         costPrice: 0.0,
+        minSellingPrice: null,
+        maxSellingPrice: null,
         stock: 0,
         minStock: 0,
         status: 'inactive',
@@ -141,6 +160,8 @@ class Product {
       'serial_number': serialNumber,
       'price': price,
       'cost_price': costPrice,
+      'min_selling_price': minSellingPrice,
+      'max_selling_price': maxSellingPrice,
       'stock': stock,
       'min_stock': minStock,
       'image': image,
@@ -161,6 +182,8 @@ class Product {
     String? serialNumber,
     double? price,
     double? costPrice,
+    double? minSellingPrice,
+    double? maxSellingPrice,
     int? stock,
     int? minStock,
     String? image,
@@ -178,6 +201,8 @@ class Product {
       serialNumber: serialNumber ?? this.serialNumber,
       price: price ?? this.price,
       costPrice: costPrice ?? this.costPrice,
+      minSellingPrice: minSellingPrice ?? this.minSellingPrice,
+      maxSellingPrice: maxSellingPrice ?? this.maxSellingPrice,
       stock: stock ?? this.stock,
       minStock: minStock ?? this.minStock,
       image: image ?? this.image,
@@ -221,5 +246,44 @@ class Product {
   
   bool isInStock() {
     return stock > 0;
+  }
+  
+  // Helper methods for price range functionality
+  bool hasFlexiblePricing() {
+    return minSellingPrice != null || maxSellingPrice != null;
+  }
+  
+  bool isPriceInRange(double price) {
+    if (!hasFlexiblePricing()) {
+      return true; // No restrictions if no range is set
+    }
+    
+    final minPrice = minSellingPrice ?? 0.0;
+    final maxPrice = maxSellingPrice ?? double.infinity;
+    
+    return price >= minPrice && price <= maxPrice;
+  }
+  
+  double getMinSellingPrice() {
+    return minSellingPrice ?? 0.0;
+  }
+  
+  double getMaxSellingPrice() {
+    return maxSellingPrice ?? double.infinity;
+  }
+  
+  String getPriceRangeText(String currencySymbol) {
+    if (!hasFlexiblePricing()) {
+      return 'No price restrictions';
+    }
+    
+    final minText = minSellingPrice != null 
+        ? '$currencySymbol${minSellingPrice!.toStringAsFixed(2)}'
+        : 'No min';
+    final maxText = maxSellingPrice != null 
+        ? '$currencySymbol${maxSellingPrice!.toStringAsFixed(2)}'
+        : 'No max';
+    
+    return '$minText - $maxText';
   }
 }

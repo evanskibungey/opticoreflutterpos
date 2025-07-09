@@ -711,6 +711,40 @@ Future<void> _updateStock(Product product) async {
                                                 color: _primaryBlue,
                                               ),
                                             ),
+                                            // Show price range if product has flexible pricing
+                                            if (product.hasFlexiblePricing()) ...[
+                                              const SizedBox(height: 2),
+                                              Container(
+                                                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.green.shade50,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(color: Colors.green.shade200),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.tune,
+                                                      size: 12,
+                                                      color: Colors.green.shade600,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Flexible(
+                                                      child: Text(
+                                                        'Range: ${product.getPriceRangeText(_currencySymbol)}',
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          color: Colors.green.shade600,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                       ),

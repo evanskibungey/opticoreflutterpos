@@ -231,6 +231,8 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
             stock: product.stock,
             categoryName: product.getCategoryName(),
             serialNumber: product.serialNumber,
+            minSellingPrice: product.minSellingPrice,
+            maxSellingPrice: product.maxSellingPrice,
           ),
         );
       });
@@ -517,17 +519,59 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
                           
                           // Price and add button with better alignment
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              // Price with larger text
-                              Text(
-                                '${_currencySymbol} ${product.price.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                  color: const Color(0xFF1D4ED8), // Blue-700
+                              // Price section with flexible pricing indicator
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Price with larger text
+                                    Text(
+                                      '${_currencySymbol} ${product.price.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                        color: const Color(0xFF1D4ED8), // Blue-700
+                                      ),
+                                    ),
+                                    // Flexible pricing indicator
+                                    if (product.hasFlexiblePricing()) ...[
+                                      const SizedBox(height: 2),
+                                      Container(
+                                        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.shade50,
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: Colors.green.shade200),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.tune,
+                                              size: 10,
+                                              color: Colors.green.shade600,
+                                            ),
+                                            const SizedBox(width: 2),
+                                            Flexible(
+                                              child: Text(
+                                                'Flexible',
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  color: Colors.green.shade600,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
-                              Spacer(),
                               // Enhanced add to cart button
                               SizedBox(
                                 height: 36,
@@ -1120,11 +1164,14 @@ class _POSSalesScreenState extends State<POSSalesScreen> with SingleTickerProvid
 class CartItem {
   final int id;
   final String name;
-  final double price;
+  double price; // Made mutable for price adjustments
+  final double originalPrice; // Store original price
   int quantity;
   final int stock;
   final String categoryName;
   final String? serialNumber;
+  final double? minSellingPrice;
+  final double? maxSellingPrice;
 
   CartItem({
     required this.id,
@@ -1134,5 +1181,45 @@ class CartItem {
     required this.stock,
     required this.categoryName,
     this.serialNumber,
-  });
+    this.minSellingPrice,
+    this.maxSellingPrice,
+  }) : originalPrice = price;
+  
+  // Helper methods for price range functionality
+  bool hasFlexiblePricing() {
+    return minSellingPrice != null || maxSellingPrice != null;
+  }
+  
+  bool isPriceInRange(double price) {
+    if (!hasFlexiblePricing()) {
+      return true; // No restrictions if no range is set
+    }
+    
+    final minPrice = minSellingPrice ?? 0.0;
+    final maxPrice = maxSellingPrice ?? double.infinity;
+    
+    return price >= minPrice && price <= maxPrice;
+  }
+  
+  double getMinSellingPrice() {
+    return minSellingPrice ?? 0.0;
+  }
+  
+  double getMaxSellingPrice() {
+    return maxSellingPrice ?? double.infinity;
+  }
+  
+  void updatePrice(double newPrice) {
+    if (isPriceInRange(newPrice)) {
+      price = newPrice;
+    }
+  }
+  
+  void resetPrice() {
+    price = originalPrice;
+  }
+  
+  bool isPriceAdjusted() {
+    return price != originalPrice;
+  }
 }

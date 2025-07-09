@@ -798,4 +798,140 @@ Future<Product> updateStock(int id, int newStock, String? notes) async {
       return {'product': {}, 'data': []};
     }
   }
+
+  // Validate single product price
+  Future<Map<String, dynamic>> validatePrice(int productId, double price) async {
+    try {
+      final token = await storage.read(key: ApiConfig.authTokenKey);
+
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final endpoint = '${ApiConfig.productsEndpoint}/validate-price';
+      final requestData = {
+        'product_id': productId,
+        'price': price,
+      };
+
+      // Log the request for debugging
+      ApiConfig.logApiRequest('POST', endpoint, requestData);
+
+      final response = await http
+          .post(
+            Uri.parse(ApiConfig.baseUrl + endpoint),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(requestData),
+          )
+          .timeout(Duration(milliseconds: ApiConfig.connectionTimeout));
+
+      // Log response for debugging
+      ApiConfig.logApiResponse(
+        endpoint,
+        response.statusCode,
+        'Response received',
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': data['success'] ?? false,
+          'valid': data['valid'] ?? false,
+          'min_price': data['min_price'] ?? 0.0,
+          'max_price': data['max_price'] ?? double.infinity,
+          'default_price': data['default_price'] ?? 0.0,
+          'message': data['message'] ?? '',
+        };
+      } else {
+        // Log the error response
+        ApiConfig.logApiResponse(
+          endpoint,
+          response.statusCode,
+          response.body,
+          isError: true,
+        );
+
+        // Parse error message if available
+        final errorData = jsonDecode(response.body);
+        final errorMessage = errorData['message'] ?? 'Failed to validate price';
+        throw Exception(errorMessage);
+      }
+    } on SocketException {
+      throw Exception('Network error - please check your internet connection');
+    } on TimeoutException {
+      throw Exception('Request timed out - please try again');
+    } catch (e) {
+      debugPrint('Error validating price: $e');
+      rethrow;
+    }
+  }
+
+  // Validate multiple product prices
+  Future<Map<String, dynamic>> validatePrices(List<Map<String, dynamic>> items) async {
+    try {
+      final token = await storage.read(key: ApiConfig.authTokenKey);
+
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final endpoint = '${ApiConfig.productsEndpoint}/validate-prices';
+      final requestData = {'items': items};
+
+      // Log the request for debugging
+      ApiConfig.logApiRequest('POST', endpoint, requestData);
+
+      final response = await http
+          .post(
+            Uri.parse(ApiConfig.baseUrl + endpoint),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(requestData),
+          )
+          .timeout(Duration(milliseconds: ApiConfig.connectionTimeout));
+
+      // Log response for debugging
+      ApiConfig.logApiResponse(
+        endpoint,
+        response.statusCode,
+        'Response received',
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': data['success'] ?? false,
+          'all_valid': data['all_valid'] ?? false,
+          'results': data['results'] ?? [],
+        };
+      } else {
+        // Log the error response
+        ApiConfig.logApiResponse(
+          endpoint,
+          response.statusCode,
+          response.body,
+          isError: true,
+        );
+
+        // Parse error message if available
+        final errorData = jsonDecode(response.body);
+        final errorMessage = errorData['message'] ?? 'Failed to validate prices';
+        throw Exception(errorMessage);
+      }
+    } on SocketException {
+      throw Exception('Network error - please check your internet connection');
+    } on TimeoutException {
+      throw Exception('Request timed out - please try again');
+    } catch (e) {
+      debugPrint('Error validating prices: $e');
+      rethrow;
+    }
+  }
 }

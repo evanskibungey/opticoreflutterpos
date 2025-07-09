@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pos_app/screens/pos/receipt_screen.dart';
 import 'package:pos_app/services/pos_service.dart';
+import 'package:pos_app/services/product_service.dart';
 
 // Re-use the CartItem class from POSSalesScreen
 import 'package:pos_app/screens/pos/pos_sales_screen.dart';
@@ -59,7 +61,12 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
   Map<String, String> _customerDetails = {'name': '', 'phone': ''};
   bool _isProcessingSale = false;
   final PosService _posService = PosService();
+  final ProductService _productService = ProductService();
   late AnimationController _animationController;
+  
+  // Price adjustment controllers
+  final Map<int, TextEditingController> _priceControllers = {};
+  final Map<int, FocusNode> _priceFocusNodes = {};
   
   @override
   void initState() {
@@ -75,6 +82,9 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
   @override
   void dispose() {
     _animationController.dispose();
+    // Dispose price controllers and focus nodes
+    _priceControllers.values.forEach((controller) => controller.dispose());
+    _priceFocusNodes.values.forEach((node) => node.dispose());
     super.dispose();
   }
 
@@ -149,6 +159,132 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
       _cart[index].quantity = newQuantity;
     });
     _updateParentCart();
+  }
+  
+  // Adjust item price
+  Future<void> _adjustItemPrice(int index, double newPrice) async {
+    final item = _cart[index];
+    
+    // Validate price using API
+    try {
+      final validation = await _productService.validatePrice(item.id, newPrice);
+      
+      if (validation['valid'] == true) {
+        setState(() {
+          item.updatePrice(newPrice);
+        });
+        _updateParentCart();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Price updated successfully'),
+              ],
+            ),
+            backgroundColor: OpticoreColors.green500,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(validation['message'] ?? 'Invalid price'),
+                ),
+              ],
+            ),
+            backgroundColor: OpticoreColors.red600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+        
+        // Reset the text field to current price
+        if (_priceControllers.containsKey(index)) {
+          _priceControllers[index]!.text = item.price.toStringAsFixed(2);
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text('Error validating price: $e'),
+              ),
+            ],
+          ),
+          backgroundColor: OpticoreColors.red600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+    }
+  }
+  
+  // Reset item price to original
+  void _resetItemPrice(int index) {
+    final item = _cart[index];
+    setState(() {
+      item.resetPrice();
+    });
+    _updateParentCart();
+    
+    // Update the text field
+    if (_priceControllers.containsKey(index)) {
+      _priceControllers[index]!.text = item.price.toStringAsFixed(2);
+    }
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.refresh, color: Colors.white),
+            SizedBox(width: 12),
+            Text('Price reset to original'),
+          ],
+        ),
+        backgroundColor: OpticoreColors.blue500,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+  
+  // Get or create price controller for item
+  TextEditingController _getPriceController(int index) {
+    if (!_priceControllers.containsKey(index)) {
+      _priceControllers[index] = TextEditingController(
+        text: _cart[index].price.toStringAsFixed(2),
+      );
+    }
+    return _priceControllers[index]!;
+  }
+  
+  // Get or create focus node for item
+  FocusNode _getPriceFocusNode(int index) {
+    if (!_priceFocusNodes.containsKey(index)) {
+      _priceFocusNodes[index] = FocusNode();
+    }
+    return _priceFocusNodes[index]!;
   }
 
   // Clear cart
@@ -407,7 +543,7 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
             (item) => {
               'id': item.id,
               'quantity': item.quantity,
-              'price': item.price,
+              'price': item.price, // Use adjusted price
             },
           )
           .toList();
@@ -608,8 +744,6 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
     );
   }
 
-  // Extracted methods to reduce duplication and improve readability
-  
   // Empty cart state widget
   Widget _buildEmptyCartState(BuildContext context) {
     return Container(
@@ -919,7 +1053,7 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
     );
   }
 
-  // Cart item card
+  // Cart item card with price adjustment functionality
   Widget _buildCartItemCard(CartItem item, int index, bool isSmallScreen) {
     return Container(
       margin: EdgeInsets.only(bottom: 16),
@@ -973,16 +1107,38 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Product name
-                      Text(
-                        item.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: isSmallScreen ? 14 : 16,
-                          color: OpticoreColors.gray800,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      // Product name with price adjustment indicator
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.name,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: isSmallScreen ? 14 : 16,
+                                color: OpticoreColors.gray800,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (item.isPriceAdjusted())
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: OpticoreColors.blue600,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                'ADJUSTED',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       SizedBox(height: 6),
                       
@@ -1055,12 +1211,190 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
                             ),
                         ],
                       ),
+                      
+                      // Price range indicator for flexible pricing
+                      if (item.hasFlexiblePricing()) ...[
+                        SizedBox(height: 6),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: OpticoreColors.green500.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: OpticoreColors.green500.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.tune,
+                                size: 10,
+                                color: OpticoreColors.green500,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Flexible Pricing',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: OpticoreColors.green500,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ],
             ),
             SizedBox(height: 12),
+            
+            // Price adjustment section for flexible pricing items
+            if (item.hasFlexiblePricing()) ...[
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: OpticoreColors.blue50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: OpticoreColors.blue200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.tune,
+                          size: 16,
+                          color: OpticoreColors.blue700,
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Price Adjustment',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: OpticoreColors.blue800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Range: ${widget.currencySymbol}${item.getMinSellingPrice().toStringAsFixed(2)} - ${item.maxSellingPrice != null ? widget.currencySymbol + item.maxSellingPrice!.toStringAsFixed(2) : 'No max'}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: OpticoreColors.blue600,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _getPriceController(index),
+                            focusNode: _getPriceFocusNode(index),
+                            decoration: InputDecoration(
+                              labelText: 'Custom Price',
+                              prefixText: widget.currencySymbol,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(6),
+                                borderSide: BorderSide(color: OpticoreColors.blue300),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(6),
+                                borderSide: BorderSide(color: OpticoreColors.blue500, width: 2),
+                              ),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              isDense: true,
+                            ),
+                            keyboardType: TextInputType.numberWithOptions(decimal: true),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                            ],
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: OpticoreColors.blue800,
+                            ),
+                            onFieldSubmitted: (value) {
+                              final newPrice = double.tryParse(value);
+                              if (newPrice != null) {
+                                _adjustItemPrice(index, newPrice);
+                              }
+                            },
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: OpticoreColors.blue300),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            children: [
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    final newPrice = double.tryParse(_getPriceController(index).text);
+                                    if (newPrice != null) {
+                                      _adjustItemPrice(index, newPrice);
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(5),
+                                    bottomLeft: Radius.circular(5),
+                                  ),
+                                  child: Container(
+                                    padding: EdgeInsets.all(8),
+                                    child: Icon(
+                                      Icons.check,
+                                      size: 16,
+                                      color: OpticoreColors.green500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                width: 1,
+                                height: 32,
+                                color: OpticoreColors.blue300,
+                              ),
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => _resetItemPrice(index),
+                                  borderRadius: BorderRadius.only(
+                                    topRight: Radius.circular(5),
+                                    bottomRight: Radius.circular(5),
+                                  ),
+                                  child: Container(
+                                    padding: EdgeInsets.all(8),
+                                    child: Icon(
+                                      Icons.refresh,
+                                      size: 16,
+                                      color: OpticoreColors.blue700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 12),
+            ],
             
             // Responsive price and quantity layout
             LayoutBuilder(
@@ -1084,10 +1418,21 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
                             '${item.price.toStringAsFixed(2)}',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: OpticoreColors.blue700,
+                              color: item.isPriceAdjusted() ? OpticoreColors.green500 : OpticoreColors.blue700,
                               fontSize: 16,
                             ),
                           ),
+                          if (item.isPriceAdjusted()) ...[
+                            SizedBox(width: 4),
+                            Text(
+                              '(${widget.currencySymbol}${item.originalPrice.toStringAsFixed(2)})',
+                              style: TextStyle(
+                                color: OpticoreColors.gray500,
+                                fontSize: 12,
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                          ],
                           Text(
                             ' × ',
                             style: TextStyle(
@@ -1137,27 +1482,45 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
                 return Row(
                   children: [
                     // Unit price
-                    Text(
-                      '${widget.currencySymbol} ',
-                      style: TextStyle(
-                        color: OpticoreColors.gray600,
-                        fontSize: 14,
-                      ),
-                    ),
-                    Text(
-                      '${item.price.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: OpticoreColors.blue700,
-                        fontSize: 16,
-                      ),
-                    ),
-                    Text(
-                      ' × ',
-                      style: TextStyle(
-                        color: OpticoreColors.gray500,
-                        fontSize: 16,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              '${widget.currencySymbol} ',
+                              style: TextStyle(
+                                color: OpticoreColors.gray600,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              '${item.price.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: item.isPriceAdjusted() ? OpticoreColors.green500 : OpticoreColors.blue700,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Text(
+                              ' × ',
+                              style: TextStyle(
+                                color: OpticoreColors.gray500,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (item.isPriceAdjusted())
+                          Text(
+                            'Was ${widget.currencySymbol}${item.originalPrice.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              color: OpticoreColors.gray500,
+                              fontSize: 10,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                      ],
                     ),
                     
                     // Quantity controls
